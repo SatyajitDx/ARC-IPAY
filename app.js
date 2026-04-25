@@ -1,71 +1,111 @@
 // --- CONFIGURATION ---
-const USDC_ADDR = "0x3600000000000000000000000000000000000000"; 
-const ARC_CHAIN_ID = '0x4cef52'; 
-const INR_RATE = 83.50;
+const USDC_ADDR = "0x3600000000000000000000000000000000000000"; // Arc Testnet USDC Address
+const ARC_CHAIN_ID = '0x4cef52'; // Arc Network Testnet Hex ID
+const INR_RATE = 83.50; // Mock Conversion Rate
 
 let userAddress = "", provider, signer;
 
-// 1. Manual Connect Function (Button click pe chalega)
+// 1. MANUAL CONNECTION LOGIC
 async function connectWallet() {
-    if (!window.ethereum) return alert("Install Wallet (OKX or MetaMask)!");
+    if (!window.ethereum) {
+        alert("Please install OKX or MetaMask wallet!");
+        return;
+    }
     try {
+        // Request Account Access
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         userAddress = accounts[0];
+        
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
 
-        // UI Update: Connected State
-        document.getElementById("dot").classList.replace("bg-red-500", "bg-green-500");
-        document.getElementById("dot").classList.remove("animate-pulse");
-        document.getElementById("walletLabel").innerText = userAddress.slice(0, 10) + "...";
+        // Check if on correct Chain (Arc Testnet)
+        const network = await provider.getNetwork();
+        if (ethers.utils.hexValue(network.chainId) !== ARC_CHAIN_ID) {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: ARC_CHAIN_ID }],
+                });
+                location.reload();
+            } catch (switchError) {
+                alert("Please add Arc Network Testnet to your wallet!");
+            }
+        }
+
+        // Update UI to Connected State
+        updateUI(true);
+        fetchBalance();
         
-        fetchBalance(); // Balance fetch karne ka function (agar tune banaya hai)
-    } catch (e) {
-        console.error("Connection Failed", e);
+    } catch (error) {
+        console.error("User rejected the request", error);
     }
 }
 
-// 2. Toggle Profile (Menu kholna ya Connect karna)
+// 2. TOGGLE PROFILE (Connect or Open Menu)
 function toggleProfile() {
     if (!userAddress || userAddress === "") {
-        connectWallet(); // Agar connect nahi hai toh connect prompt aayega
+        connectWallet();
     } else {
-        document.getElementById("profileMenu").classList.toggle("show");
+        const menu = document.getElementById("profileMenu");
+        if (menu) menu.classList.toggle("show");
     }
 }
 
-// 3. Disconnect Logic (A to Z Reset)
+// 3. UI UPDATE HELPER
+function updateUI(isConnected) {
+    const dot = document.getElementById("dot");
+    const label = document.getElementById("walletLabel");
+
+    if (isConnected) {
+        dot.classList.replace("bg-red-500", "bg-green-500");
+        dot.classList.remove("animate-pulse");
+        label.innerText = userAddress.slice(0, 6) + "..." + userAddress.slice(-4);
+    } else {
+        dot.classList.replace("bg-green-500", "bg-red-500");
+        dot.classList.add("animate-pulse");
+        label.innerText = "Connect Wallet";
+    }
+}
+
+// 4. DISCONNECT LOGIC
 function disconnectWallet() {
     userAddress = "";
     signer = null;
 
-    // 1. Dot ko wapas RED karna
-    const dot = document.getElementById("dot");
-    if (dot) {
-        dot.classList.replace("bg-green-500", "bg-red-500");
-        dot.classList.add("animate-pulse");
-    }
+    updateUI(false);
+    
+    // Close dropdown
+    document.getElementById("profileMenu").classList.remove("show");
 
-    // 2. Label ko "Connect Wallet" karna
-    const label = document.getElementById("walletLabel");
-    if (label) {
-        label.innerText = "Connect Wallet";
-    }
+    // Reset Balances
+    document.getElementById("usdcBal").innerText = "0.00";
+    document.getElementById("inrBal").innerText = "0.00";
 
-    // 3. Dropdown band karna
-    const menu = document.getElementById("profileMenu");
-    if (menu) {
-        menu.classList.remove("show");
-    }
-
-    // 4. Balance zero karna
-    if(document.getElementById("usdcBal")) document.getElementById("usdcBal").innerText = "0.00";
-    if(document.getElementById("inrBal")) document.getElementById("inrBal").innerText = "0.00";
-
-    alert("Wallet Disconnected!");
+    alert("Disconnected Successfully!");
 }
 
-// 4. Copy Address Logic
+// 5. FETCH BALANCE LOGIC
+async function fetchBalance() {
+    if (!userAddress) return;
+    try {
+        const abi = ["function balanceOf(address) view returns (uint256)"];
+        const contract = new ethers.Contract(USDC_ADDR, abi, provider);
+        const balance = await contract.balanceOf(userAddress);
+        
+        // USDC usually has 6 decimals
+        const formattedBal = ethers.utils.formatUnits(balance, 6);
+        
+        document.getElementById("usdcBal").innerText = parseFloat(formattedBal).toFixed(2);
+        document.getElementById("inrBal").innerText = (formattedBal * INR_RATE).toLocaleString('en-IN', {
+            maximumFractionDigits: 2
+        });
+    } catch (error) {
+        console.error("Balance fetch error:", error);
+    }
+}
+
+// 6. UTILITY FUNCTIONS
 function copyAddr() {
     if (userAddress) {
         navigator.clipboard.writeText(userAddress);
@@ -74,12 +114,22 @@ function copyAddr() {
     }
 }
 
-// Bahar click karne pe menu band ho jaye
+// Close dropdown on click outside
 window.onclick = function(event) {
     if (!event.target.matches('#walletBtn, #walletBtn *')) {
         const menu = document.getElementById("profileMenu");
         if (menu && menu.classList.contains('show')) {
             menu.classList.remove('show');
         }
+    }
+}
+
+// 7. DASHBOARD TOOLS (Placeholder Logic)
+function actionAlert(type) {
+    if (!userAddress) {
+        alert("Pehle Wallet Connect karo!");
+        connectWallet();
+    } else {
+        alert(type + " functionality coming soon on Arc Network!");
     }
 }
