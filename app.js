@@ -1,150 +1,115 @@
-// --- CONFIGURATION ---
 const USDC_ADDR = "0x3600000000000000000000000000000000000000";
 const MERCHANT = "0xbdc55a1296d065b7eb4363207d1a599e578712c5"; 
-const ARC_CHAIN = "0x4cef52";
-const INR_RATE = 83.50; 
+const INR_RATE = 83.50;
 
-let userAddress = "";
-let provider, signer, currentType = "", selectedUsdc = 0;
+let userAddress = "", provider, signer, currentType = "", selectedUsdc = 0, selectedDesc = "";
 
-const operators = {
-    mobile: ["Jio Prepaid", "Airtel Prepaid", "Vi Prepaid", "BSNL"],
-    electricity: ["Tata Power", "Adani Electricity", "Bescom", "MSEDCL"],
-    dth: ["Tata Play", "Airtel DTH", "Dish TV"],
-    broadband: ["JioFiber", "Airtel Xstream", "Hathway"],
-    train: ["IRCTC"], bus: ["RedBus"], flight: ["IndiGo"], movie: ["PVR"]
+const searchForms = {
+    flight: `<input type="text" id="src" placeholder="From City" class="w-full p-4 rounded-xl text-xs mb-2"><input type="text" id="dst" placeholder="To City" class="w-full p-4 rounded-xl text-xs">`,
+    train: `<input type="text" id="src" placeholder="Source Station" class="w-full p-4 rounded-xl text-xs mb-2"><input type="text" id="dst" placeholder="Dest Station" class="w-full p-4 rounded-xl text-xs">`,
+    bus: `<input type="text" id="src" placeholder="From" class="w-full p-4 rounded-xl text-xs mb-2"><input type="text" id="dst" placeholder="To" class="w-full p-4 rounded-xl text-xs">`,
+    hotel: `<input type="text" id="src" placeholder="City / Hotel Name" class="w-full p-4 rounded-xl text-xs">`,
+    mobile: `<input type="text" id="src" placeholder="Mobile Number" class="w-full p-4 rounded-xl text-xs mb-2"><select id="operatorSelect" class="w-full p-4 rounded-xl text-xs font-bold"><option>Jio Prepaid</option><option>Airtel</option></select>`,
+    electricity: `<input type="text" id="src" placeholder="Consumer ID" class="w-full p-4 rounded-xl text-xs mb-2"><input type="number" id="manualAmt" placeholder="Enter Amount (₹)" class="w-full p-4 rounded-xl text-xs">`,
+    dth: `<input type="text" id="src" placeholder="Smart Card ID" class="w-full p-4 rounded-xl text-xs mb-2"><input type="number" id="manualAmt" placeholder="Enter Amount (₹)" class="w-full p-4 rounded-xl text-xs">`,
+    broadband: `<input type="text" id="src" placeholder="Subscriber ID" class="w-full p-4 rounded-xl text-xs mb-2"><input type="number" id="manualAmt" placeholder="Enter Amount (₹)" class="w-full p-4 rounded-xl text-xs">`,
+    movie: `<input type="text" id="src" placeholder="Cinema Name" class="w-full p-4 rounded-xl text-xs">`
 };
 
-const labels = {
-    mobile: "Enter Mobile Number", electricity: "Enter Consumer ID",
-    dth: "Enter Smart Card ID", broadband: "Enter Subscriber ID",
-    train: "Enter PNR No", bus: "Travel Route", flight: "Destination", movie: "Cinema Name"
+const travelData = {
+    flight: [{op: "IndiGo", price: 4500}, {op: "Air India", price: 5800}],
+    train: [{op: "Rajdhani Exp", price: 2100}, {op: "Duronto", price: 1850}],
+    bus: [{op: "RedBus AC", price: 950}, {op: "Volvo", price: 1200}],
+    hotel: [{op: "Taj Stay", price: 8500}, {op: "Budget Inn", price: 1500}],
+    mobile: [{op: "Monthly Plan", price: 299}, {op: "Yearly Plan", price: 2999}],
+    movie: [{op: "PVR Cinemas", price: 350}, {op: "Inox", price: 400}],
+    electricity: [], dth: [], broadband: []
 };
 
-const mockPlans = [
-    { name: "1.5GB/Day - 28 Days", inr: 299 },
-    { name: "2GB/Day - 84 Days", inr: 749 },
-    { name: "Unlimited 5G - 365 Days", inr: 2999 },
-    { name: "Data Booster 6GB", inr: 61 }
-];
-
-// --- WALLET CONNECT ---
 async function connectWallet() {
-    if (!window.ethereum) return alert("Please install OKX or MetaMask Wallet!");
-    try {
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        userAddress = accounts[0];
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-
-        document.getElementById("loginScreen").classList.add("hidden");
-        document.getElementById("dashboard").classList.remove("hidden");
-        document.getElementById("walletAddr").innerText = userAddress.slice(0, 6) + "..." + userAddress.slice(-4).toUpperCase();
-        
-        fetchBalance();
-        getHistory(5, "latestTxList");
-    } catch (e) { alert("Connection Error!"); }
+    if (!window.ethereum) return alert("Install Wallet");
+    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+    userAddress = accounts[0];
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    signer = provider.getSigner();
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.getElementById("dashboard").classList.remove("hidden");
+    document.getElementById("walletAddr").innerText = userAddress.slice(0, 6) + "..." + userAddress.slice(-4).toUpperCase();
+    fetchBalance();
+    getHistory(5, "latestTxList");
 }
 
-// --- UI LOGIC ---
 function openPopup(type) {
     currentType = type;
     document.getElementById("bookingModal").classList.remove("hidden");
     document.getElementById("modalTitle").innerText = type.toUpperCase();
-    document.getElementById("targetId").placeholder = labels[type];
-    document.getElementById("targetId").value = "";
-    
-    const opSelect = document.getElementById("operatorSelect");
-    opSelect.innerHTML = `<option disabled selected>Select Provider</option>`;
-    operators[type].forEach(op => { opSelect.innerHTML += `<option value="${op}">${op}</option>`; });
-
-    document.getElementById("customAmountBox").classList.add("hidden");
-    document.getElementById("plansBox").classList.add("hidden");
-    document.getElementById("finalPayBtn").classList.add("hidden");
-}
-
-function checkTypeAndShow() {
-    if (currentType === 'mobile') {
-        document.getElementById("customAmountBox").classList.add("hidden");
-        document.getElementById("plansBox").classList.remove("hidden");
-        loadPlans();
+    document.getElementById("searchFields").innerHTML = searchForms[type];
+    document.getElementById("searchBtn").classList.remove("hidden");
+    document.getElementById("resultsList").classList.add("hidden");
+    document.getElementById("paySection").classList.add("hidden");
+    if(type === 'electricity' || type === 'dth' || type === 'broadband') {
+        document.getElementById("searchBtn").innerText = "Fetch Bill";
     } else {
-        document.getElementById("plansBox").classList.add("hidden");
-        document.getElementById("customAmountBox").classList.remove("hidden");
-        document.getElementById("finalPayBtn").classList.remove("hidden");
+        document.getElementById("searchBtn").innerText = "Search";
     }
 }
 
-function convertToUsdc(val) {
-    if(!val || val <= 0) {
-        document.getElementById("convertedUsdc").innerText = "0.00";
-        selectedUsdc = 0; return;
+function searchTravel() {
+    const src = document.getElementById("src").value;
+    if(!src) return alert("Fill details!");
+    
+    // Check for manual utility amount
+    const manualInr = document.getElementById("manualAmt") ? document.getElementById("manualAmt").value : null;
+    if(manualInr) {
+        selectTrip("Bill Payment", src, (manualInr/INR_RATE).toFixed(2));
+        return;
     }
-    selectedUsdc = (val / INR_RATE).toFixed(2);
-    document.getElementById("convertedUsdc").innerText = selectedUsdc;
+
+    const btn = document.getElementById("searchBtn");
+    btn.innerText = "Searching...";
+    
+    setTimeout(() => {
+        btn.classList.add("hidden");
+        document.getElementById("resultsList").classList.remove("hidden");
+        const inject = document.getElementById("injectResults");
+        inject.innerHTML = "";
+        
+        travelData[currentType].forEach(item => {
+            const usdc = (item.price / INR_RATE).toFixed(2);
+            inject.innerHTML += `
+                <div onclick="selectTrip('${item.op}', '${src}', ${usdc})" class="result-card mb-2 border border-white/5 p-3 flex justify-between items-center">
+                    <div><p class="text-blue-400 font-bold text-xs">${item.op}</p><p class="text-[8px] opacity-40">Ready to book</p></div>
+                    <div class="text-right"><p class="text-white font-bold text-xs">₹${item.price}</p><p class="text-[8px] opacity-50">${usdc} USDC</p></div>
+                </div>`;
+        });
+    }, 1200);
 }
 
-function loadPlans() {
-    const list = document.getElementById("plansList");
-    list.innerHTML = "";
-    mockPlans.forEach(plan => {
-        const usdc = (plan.inr / INR_RATE).toFixed(2);
-        list.innerHTML += `<div onclick="selectPlan(${plan.inr}, ${usdc})" class="plan-card mb-2 flex justify-between items-center text-[11px]">
-            <span>${plan.name}</span><span class="text-blue-400 font-bold">₹${plan.inr} (${usdc} USDC)</span>
-        </div>`;
-    });
-}
-
-function selectPlan(inr, usdc) {
+function selectTrip(op, detail, usdc) {
     selectedUsdc = usdc;
-    const btn = document.getElementById("finalPayBtn");
-    btn.classList.remove("hidden");
-    btn.innerText = `PAY ₹${inr} (${usdc} USDC)`;
-    // Add active class to selected card
-    const cards = document.querySelectorAll('.plan-card');
-    cards.forEach(c => c.classList.remove('active'));
-    event.currentTarget.classList.add('active');
+    selectedDesc = `${op}: ${detail}`;
+    document.getElementById("paySection").classList.remove("hidden");
+    document.getElementById("selectedRouteInfo").innerText = selectedDesc;
 }
 
-// --- REAL TRANSACTION LOGIC ---
 async function executeFinalPayment() {
     const btn = document.getElementById("finalPayBtn");
-    const id = document.getElementById("targetId").value;
-
-    if(!id || selectedUsdc <= 0) return alert("Fill all details!");
-
     try {
-        btn.innerText = "WAITING FOR WALLET...";
-        btn.disabled = true;
-
+        btn.innerText = "WAITING..."; btn.disabled = true;
         const abi = ["function transfer(address to, uint256 amount) public returns (bool)"];
         const contract = new ethers.Contract(USDC_ADDR, abi, signer);
-        
-        // USDC decimals = 6
-        const amountUnits = ethers.utils.parseUnits(selectedUsdc.toString(), 6);
-
-        const tx = await contract.transfer(MERCHANT, amountUnits, {
-            gasLimit: 120000,
-            type: 0 // Compatibility for all wallets
-        });
-
-        btn.innerText = "CONFIRMING...";
+        const tx = await contract.transfer(MERCHANT, ethers.utils.parseUnits(selectedUsdc.toString(), 6), { gasLimit: 120000, type: 0 });
         await tx.wait();
-
-        alert(`Payment Successful for ID: ${id}! ✅`);
+        
+        document.getElementById("resId").innerText = selectedDesc;
+        document.getElementById("resAmt").innerText = selectedUsdc + " USDC";
         closeModal('bookingModal');
+        document.getElementById("successModal").classList.remove("hidden");
         fetchBalance();
         getHistory(5, "latestTxList");
-    } catch (e) {
-        console.error(e);
-        alert("Payment Failed! Check Gas Fees or Balance.");
-    } finally {
-        btn.innerText = "Confirm Payment";
-        btn.disabled = false;
-    }
+    } catch (e) { alert("Payment Fail!"); btn.disabled = false; btn.innerText = "Pay & Confirm"; }
 }
 
-// --- HELPERS ---
 async function fetchBalance() {
     try {
         const abi = ["function balanceOf(address) view returns (uint256)"];
@@ -161,22 +126,12 @@ async function getHistory(limit, targetId) {
     try {
         const abi = ["event Transfer(address indexed from, address indexed to, uint256 value)"];
         const contract = new ethers.Contract(USDC_ADDR, abi, provider);
-        const filter = contract.filters.Transfer(userAddress, null);
-        const logs = await contract.queryFilter(filter, -5000, "latest");
-        list.innerHTML = logs.slice(-limit).reverse().map(l => `
-            <div class="flex justify-between border-b border-white/5 pb-3 text-[10px]">
-                <div class="text-left"><p class="text-blue-300 font-bold">To: ${l.args.to.slice(0,12)}...</p><p class="opacity-30">Confirmed</p></div>
-                <div class="text-right font-black italic">-${ethers.utils.formatUnits(l.args.value, 6)} USDC</div>
-            </div>`).join('');
-    } catch (e) { list.innerHTML = "History Syncing..."; }
-}
-
-function openReceive() {
-    document.getElementById("receiveModal").classList.remove("hidden");
-    document.getElementById("fullAddrDisplay").innerText = userAddress;
-    document.getElementById("qrcode").innerHTML = "";
-    new QRCode(document.getElementById("qrcode"), { text: userAddress, width: 180, height: 180 });
+        const logs = await contract.queryFilter(contract.filters.Transfer(userAddress), -1000, "latest");
+        list.innerHTML = logs.slice(-limit).reverse().map(l => `<div class="flex justify-between border-b border-white/5 pb-2 text-[9px] italic font-bold">
+            <p>To: ${l.args.to.slice(0,12)}...</p><p>-${ethers.utils.formatUnits(l.args.value, 6)} USDC</p></div>`).join('');
+    } catch (e) {}
 }
 
 function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
-function copyAddr() { navigator.clipboard.writeText(userAddress); alert("Copied! ✅"); }
+function openHistoryModal() { alert("Full History Logic Syncing..."); }
+function openReceive() { alert("My Addr: " + userAddress); }
