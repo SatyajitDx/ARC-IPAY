@@ -1,3 +1,16 @@
+<div class="dropdown">
+    <button id="walletBtn" onclick="toggleProfile()" class="glass py-2 px-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-tighter">
+        <span id="dot" class="bg-red-500 w-2 h-2 rounded-full"></span>
+        <span id="walletLabel">Connect Wallet</span>
+        <i class="fa-solid fa-caret-down opacity-50"></i>
+    </button>
+    
+    <div id="profileMenu" class="dropdown-menu">
+        <button onclick="copyAddr()"><i class="fa-solid fa-copy mr-2"></i>Copy Address</button>
+        <button onclick="disconnectWallet()"><i class="fa-solid fa-power-off mr-2"></i>Disconnect</button>
+    </div>
+</div>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
