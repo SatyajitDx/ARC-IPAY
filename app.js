@@ -119,3 +119,62 @@ async function getTxLogs() {
 
 function closeFlow() { location.reload(); }
 function copyAddr() { navigator.clipboard.writeText(userAddress); alert("Copied!"); }
+
+// --- WALLET DROPDOWN & DISCONNECT LOGIC ---
+
+// 1. Menu kholne aur band karne ke liye
+function toggleProfile() {
+    // Agar userAddress khali hai, toh pehle connect karne ka prompt dega
+    if (!userAddress || userAddress === "") {
+        autoConnect(); 
+    } else {
+        // Agar connected hai, toh menu dikhayega ya chupayega
+        const menu = document.getElementById("profileMenu");
+        if (menu) {
+            menu.classList.toggle("show");
+        }
+    }
+}
+
+// 2. Real Disconnect Logic (Site se connection hatane ke liye)
+function disconnectWallet() {
+    // Variable reset
+    userAddress = "";
+    if (typeof signer !== 'undefined') signer = null;
+
+    // UI Reset: Dot ko Red karna aur Label badalna
+    const dot = document.getElementById("dot");
+    if (dot) {
+        dot.classList.remove("bg-green-500");
+        dot.classList.add("bg-red-500");
+        dot.classList.add("animate-pulse");
+    }
+
+    const label = document.getElementById("walletLabel");
+    if (label) {
+        label.innerText = "Wallet Disconnect";
+    }
+
+    // Dropdown menu band karna
+    const menu = document.getElementById("profileMenu");
+    if (menu) {
+        menu.classList.remove("show");
+    }
+
+    // Balance zero karna
+    if (document.getElementById("usdcBal")) document.getElementById("usdcBal").innerText = "0.00";
+    if (document.getElementById("inrBal")) document.getElementById("inrBal").innerText = "0.00";
+
+    console.log("Wallet disconnected locally");
+    alert("Disconnected Successfully!");
+}
+
+// 3. Bahar click karne par menu band ho jaye (Extra safety)
+window.onclick = function(event) {
+    if (!event.target.matches('#walletBtn, #walletBtn *')) {
+        const menu = document.getElementById("profileMenu");
+        if (menu && menu.classList.contains('show')) {
+            menu.classList.remove('show');
+        }
+    }
+};
