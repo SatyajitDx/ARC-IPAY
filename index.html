@@ -3,131 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-    <title>ARC INDIPAY - OFFICIAL V1</title>
+    <title>ARC INDIPAY - TESTNET PRO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+    
     <style>
         body { 
-            background: linear-gradient(135deg, #2d1804 0%, #1a1a1a 50%, #051a05 100%) !important; 
-            color: #f0f2f5; font-family: sans-serif; margin: 0; min-height: 100vh; display: flex; justify-content: center;
+            background: linear-gradient(160deg, #FF9933 0%, #FFFFFF 50%, #138808 100%) !important; 
+            color: #000; font-family: sans-serif; margin: 0; padding: 0; min-height: 100vh;
         }
-        .app-container { width: 100%; max-width: 450px; min-height: 100vh; background: rgba(0,0,0,0.2); padding: 20px; box-sizing: border-box; position: relative; }
-        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; }
+        .app-container { max-width: 480px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
+        .glass { background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.3); border-radius: 24px; color: #000; }
         .tiranga-text {
-            background: linear-gradient(90deg, #FF9933 10%, #FFFFFF 50%, #138808 90%);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            font-weight: 900; text-transform: uppercase; font-style: italic;
-            filter: drop-shadow(2px 2px 1px rgba(0, 0, 0, 0.8));
+            background: linear-gradient(90deg, #FF9933 0%, #000080 50%, #138808 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900;
         }
-        .logo-box { display: flex; align-items: center; gap: 8px; background: rgba(0, 0, 0, 0.4); padding: 8px 15px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1); }
+        .hidden { display: none !important; }
+        input, select { background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0,0,0,0.1) !important; color: #000 !important; outline: none; width: 100%; padding: 15px; border-radius: 12px; margin-bottom: 10px; font-weight: bold; }
+        .bottom-pay { position: fixed; bottom: 0; left: 0; right: 0; background: #000080; padding: 20px; z-index: 100; text-align: center; color: white; border-radius: 24px 24px 0 0; display: none; }
+        
+        /* Profile Dropdown */
         .dropdown { position: relative; }
-        .dropdown-menu { display: none; position: absolute; left: 0; top: 45px; background: #1a1a1a; min-width: 150px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 1000; border: 1px solid rgba(255,255,255,0.1); }
-        .dropdown-menu button { width: 100%; text-align: left; padding: 12px 15px; font-size: 10px; font-weight: bold; color: white; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .dropdown-menu { display: none; position: absolute; right: 0; top: 45px; background: white; min-width: 160px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border-radius: 12px; z-index: 1000; padding: 10px 0; }
+        .dropdown-menu button { width: 100%; text-align: left; padding: 10px 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #f0f0f0; }
+        .dropdown-menu button:last-child { border: none; color: red; }
         .show { display: block !important; }
-        input { background: rgba(255,255,255,0.1) !important; color: white !important; outline: none; width: 100%; padding: 15px; border-radius: 12px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1); font-weight: bold; }
-        .bottom-pay { position: fixed; bottom: 0; width: 100%; max-width: 450px; background: #000080; padding: 20px; z-index: 100; text-align: center; border-radius: 24px 24px 0 0; display: none; box-shadow: 0 -10px 20px rgba(0,0,0,0.3); }
-        .flight-item { background: white; color: #333; border-radius: 16px; padding: 15px; margin-bottom: 12px; cursor: pointer; }
     </style>
 </head>
 <body onload="autoConnect()">
 
     <div class="app-container">
         <div class="flex justify-between items-center mb-8">
-            <div class="dropdown">
-                <button id="walletBtn" onclick="toggleMenu()" class="glass py-2 px-4 flex items-center gap-2 text-[10px] font-black uppercase text-white">
-                    <span id="dot" class="bg-red-500 w-2 h-2 rounded-full"></span>
-                    <span id="walletLabel">Connect Wallet</span>
-                    <i class="fa-solid fa-caret-down opacity-50"></i>
-                </button>
-                <div id="profileMenu" class="dropdown-menu">
-                    <button onclick="copyAddr()">Copy Address</button>
-                    <button onclick="location.reload()">Disconnect</button>
-                </div>
-            </div>
-            <div class="logo-box">
-                <h2 class="tiranga-text text-lg tracking-tighter">Arc Indipay</h2>
+            <div class="flex items-center gap-2">
+                <h2 class="tiranga-text font-black italic tracking-tighter text-2xl uppercase">Arc Indipay</h2>
                 <img src="logo.png" class="w-6 h-6 object-contain">
             </div>
-        </div>
-
-        <div id="dashboardView">
-            <div class="glass p-8 mb-8 text-center shadow-2xl">
-                <p class="text-[9px] opacity-40 mb-2 uppercase tracking-widest">Arc Network (POL/USDC)</p>
-                <h1 class="text-5xl font-black italic tracking-tighter"><span id="usdcBal">0.00</span> <span class="text-2xl opacity-30">USDC</span></h1>
-                <p class="text-xl font-bold mt-2 text-blue-300">≈ ₹<span id="inrBal">0.00</span></p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4 mb-4">
-                <div onclick="alert('Send Ready')" class="glass p-8 text-center active:scale-95"><i class="fa-solid fa-paper-plane text-2xl mb-3 text-orange-400"></i><p class="text-[10px] font-black italic">SEND</p></div>
-                <div onclick="alert('Receive Ready')" class="glass p-8 text-center active:scale-95"><i class="fa-solid fa-qrcode text-2xl mb-3 text-blue-400"></i><p class="text-[10px] font-black italic">RECEIVE</p></div>
-            </div>
-            <div class="grid grid-cols-2 gap-4 mb-10">
-                <div onclick="alert('Scanner Ready')" class="glass p-8 text-center active:scale-95"><i class="fa-solid fa-expand text-2xl mb-3 text-green-400"></i><p class="text-[10px] font-black italic">SCAN & PAY</p></div>
-                <div onclick="alert('History Ready')" class="glass p-8 text-center active:scale-95"><i class="fa-solid fa-clock-rotate-left text-2xl mb-3 opacity-30"></i><p class="text-[10px] font-black italic">HISTORY</p></div>
-            </div>
-
-            <div class="glass p-6 mb-6">
-                <h3 class="text-blue-400 font-black italic text-xs mb-5 uppercase tracking-widest">Bookings & Tickets</h3>
-                <div class="grid grid-cols-4 gap-2 text-center">
-                    <div onclick="openService('flight')" class="glass py-4 active:scale-90"><i class="fa-solid fa-plane text-orange-400"></i><p class="text-[8px] font-black mt-1">FLIGHT</p></div>
-                    <div onclick="openService('bus')" class="glass py-4 active:scale-90"><i class="fa-solid fa-bus text-green-400"></i><p class="text-[8px] font-black mt-1">BUS</p></div>
-                    <div onclick="openService('train')" class="glass py-4 active:scale-90"><i class="fa-solid fa-train text-orange-400"></i><p class="text-[8px] font-black mt-1">TRAIN</p></div>
-                    <div onclick="openService('hotel')" class="glass py-4 active:scale-90"><i class="fa-solid fa-hotel text-green-400"></i><p class="text-[8px] font-black mt-1">HOTEL</p></div>
-                </div>
-            </div>
-
-            <div class="glass p-6 mb-10">
-                <h3 class="text-blue-400 font-black italic text-xs mb-5 uppercase tracking-widest">Bills & Recharges</h3>
-                <div class="grid grid-cols-4 gap-2 text-center">
-                    <div onclick="openService('mobile')" class="glass py-4 active:scale-90"><i class="fa-solid fa-mobile-screen text-orange-400"></i><p class="text-[8px] font-black mt-1">MOBILE</p></div>
-                    <div onclick="openService('electric')" class="glass py-4 active:scale-90"><i class="fa-solid fa-lightbulb text-green-400"></i><p class="text-[8px] font-black mt-1">ELECTRIC</p></div>
-                    <div onclick="openService('dth')" class="glass py-4 active:scale-90"><i class="fa-solid fa-tv text-orange-400"></i><p class="text-[8px] font-black mt-1">DTH</p></div>
-                    <div onclick="openService('wifi')" class="glass py-4 active:scale-90"><i class="fa-solid fa-wifi text-green-400"></i><p class="text-[8px] font-black mt-1">WIFI</p></div>
+            
+            <div class="dropdown">
+                <button id="walletBtn" onclick="toggleProfile()" class="glass py-2 px-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-tighter">
+                    <span id="dot" class="bg-red-500 w-2 h-2 rounded-full animate-pulse"></span>
+                    <span id="walletLabel">Wallet Disconnect</span>
+                </button>
+                <div id="profileMenu" class="dropdown-menu">
+                    <button onclick="copyAddr()"><i class="fa-solid fa-copy mr-2"></i>Copy Address</button>
+                    <button onclick="location.reload()"><i class="fa-solid fa-power-off mr-2"></i>Disconnect</button>
                 </div>
             </div>
         </div>
 
-        <div id="bookingUI" class="hidden pb-40 animate-in slide-in-from-bottom duration-500">
-            <button onclick="closeService()" class="mb-6 opacity-50 text-white font-bold"><i class="fa-solid fa-arrow-left"></i> BACK</button>
-            <div id="stepSearch">
-                <div id="inputBox" class="space-y-2"></div>
-                <button onclick="runSearch()" class="w-full bg-blue-600 py-4 rounded-xl font-black italic mt-4 uppercase">Search Now</button>
+        <div class="glass p-8 mb-8 text-center shadow-xl border-white/50" style="background: rgba(255,255,255,0.7);">
+            <p class="text-[10px] opacity-60 mb-2 font-mono uppercase tracking-widest">Arc Network (Testnet)</p>
+            <h1 class="text-5xl font-black italic tracking-tighter text-black"><span id="usdcBal">0.00</span> <span class="text-2xl opacity-40">USDC</span></h1>
+            <p class="text-xl font-bold mt-2 text-[#000080]">≈ ₹<span id="inrBal">0.00</span></p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-4">
+            <div onclick="alert('Transfer Ready')" class="glass p-8 text-center active:scale-95"><i class="fa-solid fa-paper-plane text-3xl mb-3 text-[#FF9933]"></i><p class="text-xs font-black uppercase italic">Send</p></div>
+            <div onclick="alert('Receive Ready')" class="glass p-8 text-center active:scale-95"><i class="fa-solid fa-qrcode text-3xl mb-3 text-[#000080]"></i><p class="text-xs font-black uppercase italic">Receive</p></div>
+        </div>
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div onclick="alert('Scanner Ready')" class="glass p-8 text-center active:scale-95"><i class="fa-solid fa-expand text-3xl mb-3 text-[#138808]"></i><p class="text-xs font-black uppercase italic">Scan & Pay</p></div>
+            <div onclick="alert('History Ready')" class="glass p-8 text-center active:scale-95"><i class="fa-solid fa-clock-rotate-left text-3xl mb-3 opacity-40"></i><p class="text-xs font-black uppercase italic">History</p></div>
+        </div>
+
+        <div class="glass p-6 mb-6">
+            <h3 class="text-[#000080] font-black italic text-sm mb-5 uppercase tracking-widest">Bookings & Tickets</h3>
+            <div class="grid grid-cols-4 gap-2 text-center">
+                <div onclick="startFlow('flight')" class="glass py-4"><i class="fa-solid fa-plane text-[#FF9933]"></i><p class="text-[8px] font-black italic mt-1">FLIGHT</p></div>
+                <div onclick="startFlow('bus')" class="glass py-4"><i class="fa-solid fa-bus text-[#138808]"></i><p class="text-[8px] font-black italic mt-1">BUS</p></div>
+                <div onclick="startFlow('train')" class="glass py-4"><i class="fa-solid fa-train text-[#FF9933]"></i><p class="text-[8px] font-black italic mt-1">TRAIN</p></div>
+                <div onclick="startFlow('hotel')" class="glass py-4"><i class="fa-solid fa-hotel text-[#138808]"></i><p class="text-[8px] font-black italic mt-1">HOTEL</p></div>
             </div>
-            <div id="stepResults" class="hidden space-y-4">
-                <p class="text-center italic opacity-30 text-xs">Getting available options...</p>
-                <div id="resultsInject"></div>
+        </div>
+
+        <div class="glass p-6 mb-10">
+            <h3 class="text-[#000080] font-black italic text-sm mb-5 uppercase tracking-widest">Bills & Recharges</h3>
+            <div class="grid grid-cols-4 gap-2 text-center">
+                <div onclick="startFlow('mobile')" class="glass py-4"><i class="fa-solid fa-mobile-screen text-[#FF9933]"></i><p class="text-[8px] font-black italic mt-1">MOBILE</p></div>
+                <div onclick="startFlow('electric')" class="glass py-4"><i class="fa-solid fa-lightbulb text-[#138808]"></i><p class="text-[8px] font-black italic mt-1">ELECTRIC</p></div>
+                <div onclick="startFlow('dth')" class="glass py-4"><i class="fa-solid fa-tv text-[#FF9933]"></i><p class="text-[8px] font-black italic mt-1">DTH</p></div>
+                <div onclick="startFlow('wifi')" class="glass py-4"><i class="fa-solid fa-wifi text-[#138808]"></i><p class="text-[8px] font-black italic mt-1">WIFI</p></div>
             </div>
-            <div id="stepFinal" class="hidden space-y-4">
-                <div class="glass p-6 space-y-4">
-                    <p id="pTitle" class="text-orange-400 text-xs font-black uppercase tracking-widest">Passenger Details:</p>
-                    <input type="text" id="pName" placeholder="Full Name">
-                    <input type="number" id="pAge" placeholder="Age">
-                    <input type="text" id="pId" placeholder="ID Number (Aadhar/Passport)">
-                </div>
-            </div>
+        </div>
+
+        <div class="glass p-6 text-[10px] italic font-black uppercase tracking-widest text-center">
+            <p class="opacity-30 mb-4">Latest Transactions (Arc Testnet)</p>
+            <div id="txList" class="space-y-3 text-left"></div>
         </div>
     </div>
 
-    <div id="bottomBar" class="bottom-pay">
-        <p id="totalLabel" class="text-blue-200 text-[10px] font-bold italic mb-3 uppercase"></p>
-        <button onclick="startTx()" id="payBtn" class="w-full bg-white text-[#000080] py-5 rounded-2xl font-black text-xl uppercase italic shadow-2xl active:scale-95 transition-all">Confirm & Pay</button>
+    <div id="bookingOverlay" class="fixed inset-0 bg-white z-[150] hidden p-6 flex flex-col font-bold">
+        <div class="flex items-center gap-4 mb-6">
+            <button onclick="closeFlow()" class="text-2xl">&larr;</button>
+            <h2 id="flowTitle" class="text-xl italic font-black uppercase text-[#000080]">Search</h2>
+        </div>
+        <div id="flowContent" class="space-y-4"></div>
+        
+        <div id="resultsInject" class="space-y-4 mt-6"></div>
+
+        <div id="bottomBar" class="bottom-pay">
+            <p id="totalPrice" class="text-white text-[10px] mb-3"></p>
+            <button onclick="finalPay()" id="payBtn" class="w-full bg-white text-[#000080] py-5 rounded-2xl font-black text-xl uppercase italic active:scale-95">Confirm & Pay</button>
+        </div>
     </div>
 
-    <div id="successModal" class="fixed inset-0 bg-black/95 flex items-center justify-center p-6 z-[200] hidden">
-        <div class="glass p-10 w-full text-center italic uppercase shadow-2xl" style="background: linear-gradient(135deg, #FF9933 0%, #FFFFFF 50%, #138808 100%); border: none; color: black;">
+    <div id="successModal" class="fixed inset-0 bg-black/95 backdrop-blur-lg hidden flex items-center justify-center p-6 z-[200]">
+        <div class="glass p-10 w-full text-center italic uppercase shadow-2xl animate-in zoom-in" style="background: linear-gradient(135deg, #FF9933 0%, #FFFFFF 50%, #138808 100%); border: none;">
             <h1 class="text-[#000080] text-3xl font-black mb-6 italic">Congratulation!</h1>
-            <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl border-4 border-[#000080] shadow-green-500/50">
-                <i class="fa-solid fa-check text-5xl text-[#138808]"></i>
+            <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl border-4 border-[#000080]"><i class="fa-solid fa-check text-5xl text-[#138808]"></i></div>
+            <h2 class="text-4xl font-black mb-1 text-black">First</h2>
+            <h3 class="text-black font-black text-lg mb-10 tracking-widest">Recharge Successful</h3>
+            <div class="glass p-6 text-left text-[10px] space-y-3 border-black/5 font-bold" style="background: rgba(255,255,255,0.8); color: black;">
+                <div class="flex justify-between"><span>Service:</span><span id="resDesc" class="font-black text-[#000080]">---</span></div>
+                <div class="flex justify-between font-black pt-3 border-t border-black/10"><span>Amount:</span><span id="resAmt" class="text-[#138808] text-xl font-black">---</span></div>
             </div>
-            <h2 class="text-4xl font-black mb-1">Recharge</h2>
-            <h3 class="font-black opacity-60">Successful</h3>
-            <div class="glass p-5 text-left text-[10px] space-y-2 border-black/10 mt-6 font-bold" style="background: rgba(255,255,255,0.7);">
-                <div class="flex justify-between"><span>Detail:</span><span id="resItem">---</span></div>
-                <div class="flex justify-between border-t border-black/10 pt-2 font-black"><span>Paid:</span><span id="resPrice" class="text-green-700 text-lg">---</span></div>
-            </div>
-            <button onclick="location.reload()" class="w-full bg-[#000080] text-white mt-10 py-5 rounded-2xl font-black shadow-xl">Back to Home</button>
+            <button onclick="location.reload()" class="w-full bg-[#000080] mt-10 py-5 rounded-2xl font-black text-white text-lg">Back to Home</button>
         </div>
     </div>
 
