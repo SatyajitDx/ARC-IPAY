@@ -1,100 +1,108 @@
-// --- ARC NETWORK CONFIG ---
-const USDC_ADDR = "0x3600000000000000000000000000000000000000"; // Testnet USDC
-const ARC_CHAIN_ID = '0x4cef52'; // Arc Testnet Hex ID
-const MERCHANT_ADDR = "0xbdc55a1296d065b7eb4363207d1a599e578712c5"; 
+const USDC_ADDR = "0x3600000000000000000000000000000000000000";
+const MERCHANT = "0xbdc55a1296d065b7eb4363207d1a599e578712c5"; 
+const ARC_CHAIN = '0x4cef52'; 
 const INR_RATE = 83.50;
 
-let userAddress = "", provider, signer;
+let userAddress = "", provider, signer, selectedPrice = 0, selectedItem = "";
 
-// 1. CONNECT WALLET
-async function connectWallet() {
-    if (!window.ethereum) return alert("Install OKX or MetaMask!");
+async function autoConnect() {
+    if (!window.ethereum) return;
     try {
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         userAddress = accounts[0];
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
 
-        // Auto-switch to Arc Network
-        const { chainId } = await provider.getNetwork();
-        if (ethers.utils.hexValue(chainId) !== ARC_CHAIN_ID) {
-            await window.ethereum.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: ARC_CHAIN_ID }],
-            });
-        }
-
-        updateUI(true);
+        document.getElementById("dot").classList.replace("bg-red-500", "bg-green-500");
+        document.getElementById("walletLabel").innerText = userAddress.slice(0, 10) + "...";
+        
         fetchBalance();
     } catch (e) { console.error(e); }
 }
 
-// 2. SEND (Real Transaction)
-async function openSend() {
-    if (!userAddress) return connectWallet();
-    const to = prompt("Enter Recipient Address (0x...):");
-    const amt = prompt("Enter Amount in USDC:");
-    
-    if (to && amt) {
-        try {
-            const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
-            const tx = await contract.transfer(to, ethers.utils.parseUnits(amt, 6));
-            alert("Transaction Sent! Hash: " + tx.hash);
-            await tx.wait();
-            alert("Payment Successful!");
-            fetchBalance();
-        } catch (e) { alert("Transaction Failed!"); }
-    }
+function toggleProfile() { userAddress ? document.getElementById("profileMenu").classList.toggle("show") : autoConnect(); }
+
+// --- TOOLS LOGIC ---
+function openSend() { if(!userAddress) return autoConnect(); document.getElementById("sendModal").classList.remove("hidden"); }
+function openReceive() { 
+    if(!userAddress) return autoConnect(); 
+    document.getElementById("receiveModal").classList.remove("hidden");
+    document.getElementById("myFullAddr").innerText = userAddress;
+    document.getElementById("qrcode").innerHTML = "";
+    new QRCode(document.getElementById("qrcode"), { text: userAddress, width: 150, height: 150 });
 }
 
-// 3. RECEIVE (QR Code)
-function openReceive() {
-    if (!userAddress) return connectWallet();
-    // Modal dikhane ka logic yahan aayega
-    alert("Your Arc Wallet: " + userAddress);
-}
-
-// 4. HISTORY (Real Tx Logs)
-async function openHistory() {
-    if (!userAddress) return connectWallet();
+async function processSend() {
+    const to = document.getElementById("sendAddr").value;
+    const val = document.getElementById("sendAmt").value;
+    const btn = document.getElementById("sendS");
     try {
-        const contract = new ethers.Contract(USDC_ADDR, ["event Transfer(address indexed from, address indexed to, uint256 value)"], provider);
-        const logs = await contract.queryFilter(contract.filters.Transfer(userAddress), -1000, "latest");
-        console.log("Recent Transactions:", logs);
-        alert("Check Console for Real-Time Tx History!");
-    } catch (e) { console.error(e); }
+        btn.innerText = "WAIT..."; btn.disabled = true;
+        const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
+        const tx = await contract.transfer(to, ethers.utils.parseUnits(val, 6));
+        await tx.wait();
+        alert("Sent!"); location.reload();
+    } catch (e) { alert("Fail!"); btn.disabled = false; btn.innerText = "Send"; }
 }
 
-// 5. FETCH BALANCE
+// --- BOOKING LOGIC ---
+const mockDb = { flight: [{op: "IndiGo", inr: 7421, time: "23:00-01:55"}], train: [{op: "Rajdhani", inr: 4500, time: "16:55-10:00"}], mobile: [{op: "Jio", inr: 299, time: "28 Days"}] };
+
+function startFlow(type) {
+    document.getElementById("bookingOverlay").classList.remove("hidden");
+    document.getElementById("flowTitle").innerText = type.toUpperCase() + " SEARCH";
+    document.getElementById("flowContent").innerHTML = `<input type="text" id="src" placeholder="Source / Number"><button onclick="runSearch('${type}')" class="w-full bg-[#000080] text-white py-4 rounded-xl">Search Options</button>`;
+}
+
+function runSearch(type) {
+    const inject = document.getElementById("resultsInject");
+    inject.innerHTML = `<p class="text-center opacity-40 italic">Searching...</p>`;
+    setTimeout(() => {
+        const data = mockDb[type] || mockDb['mobile'];
+        inject.innerHTML = data.map(item => {
+            const usdc = (item.inr / INR_RATE).toFixed(2);
+            return `<div onclick="selectItem('${item.op}', ${item.inr}, ${usdc})" class="glass p-5 flex justify-between items-center text-black border">
+                <div><p class="font-black text-[#000080] text-xs">${item.op}</p><p class="text-[8px] opacity-60">${item.time}</p></div>
+                <div class="text-right"><p class="font-black text-sm">₹${item.inr}</p><p class="text-[8px] text-green-600">${usdc} USDC</p></div>
+            </div>`;
+        }).join('');
+    }, 1000);
+}
+
+function selectItem(op, inr, usdc) {
+    selectedPrice = usdc; selectedItem = op;
+    document.getElementById("resultsInject").innerHTML = `<div class="glass p-6 space-y-4"><input type="text" id="pName" placeholder="Traveller Name"><input type="number" placeholder="Age"></div>`;
+    document.getElementById("bottomBar").style.display = "block";
+    document.getElementById("totalPrice").innerText = `Total: ₹${inr} (${usdc} USDC)`;
+}
+
+async function finalPay() {
+    if(!document.getElementById("pName").value) return alert("Fill Name!");
+    const btn = document.getElementById("payBtn");
+    try {
+        btn.innerText = "WAITING..."; btn.disabled = true;
+        const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
+        const tx = await contract.transfer(MERCHANT, ethers.utils.parseUnits(selectedPrice.toString(), 6));
+        await tx.wait();
+        document.getElementById("resAmtShow").innerText = selectedPrice + " USDC";
+        document.getElementById("successModal").classList.remove("hidden");
+    } catch (e) { alert("Fail!"); btn.disabled = false; btn.innerText = "Confirm & Pay"; }
+}
+
 async function fetchBalance() {
-    try {
-        const contract = new ethers.Contract(USDC_ADDR, ["function balanceOf(address) view returns (uint256)"], provider);
-        const bal = await contract.balanceOf(userAddress);
-        const fBal = ethers.utils.formatUnits(bal, 6);
-        document.getElementById("usdcBal").innerText = parseFloat(fBal).toFixed(2);
-        document.getElementById("inrBal").innerText = (fBal * INR_RATE).toLocaleString('en-IN');
-    } catch (e) { console.log("Balance Error"); }
+    const contract = new ethers.Contract(USDC_ADDR, ["function balanceOf(address) view returns (uint256)"], provider);
+    const bal = await contract.balanceOf(userAddress);
+    const f = ethers.utils.formatUnits(bal, 6);
+    document.getElementById("usdcBal").innerText = parseFloat(f).toFixed(2);
+    document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN');
 }
 
-// --- UI HELPERS ---
-function toggleProfile() {
-    userAddress ? document.getElementById("profileMenu").classList.toggle("show") : connectWallet();
+async function getTxLogs() {
+    const contract = new ethers.Contract(USDC_ADDR, ["event Transfer(address indexed from, address indexed to, uint256 value)"], provider);
+    const logs = await contract.queryFilter(contract.filters.Transfer(userAddress), -500, "latest");
+    alert("Check Console for History Log"); console.log(logs);
 }
 
-function updateUI(connected) {
-    const dot = document.getElementById("dot");
-    const label = document.getElementById("walletLabel");
-    if (connected) {
-        dot.classList.replace("bg-red-500", "bg-green-500");
-        label.innerText = userAddress.slice(0, 6) + "..." + userAddress.slice(-4);
-    } else {
-        dot.classList.replace("bg-green-500", "bg-red-500");
-        label.innerText = "Connect Wallet";
-    }
-}
-
-function disconnectWallet() {
-    userAddress = ""; signer = null;
-    updateUI(false);
-    location.reload();
-}
+function disconnectWallet() { userAddress = ""; location.reload(); }
+function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+function copyAddr() { navigator.clipboard.writeText(userAddress); alert("Copied!"); }
