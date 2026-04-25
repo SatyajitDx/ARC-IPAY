@@ -40,17 +40,20 @@
                 <h2 class="tiranga-text font-black italic tracking-tighter text-2xl uppercase">Arc Indipay</h2>
                 <img src="logo.png" class="w-6 h-6 object-contain">
             </div>
+
+          <div class="dropdown">
+    <button id="walletBtn" onclick="toggleProfile()" class="glass py-2 px-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-tighter">
+        <span id="dot" class="bg-red-500 w-2 h-2 rounded-full animate-pulse"></span>
+        <span id="walletLabel">Wallet Disconnect</span>
+        <i class="fa-solid fa-caret-down opacity-50"></i>
+    </button>
+    
+    <div id="profileMenu" class="dropdown-menu">
+        <button onclick="copyAddr()"><i class="fa-solid fa-copy mr-2"></i>Copy Address</button>
+        <button onclick="disconnectWallet()"><i class="fa-solid fa-power-off mr-2"></i>Disconnect</button>
+    </div>
+</div>  
             
-            <div class="dropdown">
-                <button id="walletBtn" onclick="toggleProfile()" class="glass py-2 px-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-tighter">
-                    <span id="dot" class="bg-red-500 w-2 h-2 rounded-full animate-pulse"></span>
-                    <span id="walletLabel">Wallet Disconnect</span>
-                </button>
-                <div id="profileMenu" class="dropdown-menu">
-                    <button onclick="copyAddr()"><i class="fa-solid fa-copy mr-2"></i>Copy Address</button>
-                    <button onclick="location.reload()"><i class="fa-solid fa-power-off mr-2"></i>Disconnect</button>
-                </div>
-            </div>
         </div>
 
         <div class="glass p-8 mb-8 text-center shadow-xl border-white/50" style="background: rgba(255,255,255,0.7);">
