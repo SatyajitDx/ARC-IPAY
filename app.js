@@ -1,6 +1,6 @@
-// --- ARC NETWORK CONFIG ---
+// --- ARC NETWORK CONFIG (UPDATED) ---
 const USDC_ADDR = "0x3600000000000000000000000000000000000000"; 
-const ARC_CHAIN_ID = '0x4cef52'; 
+const ARC_CHAIN_ID = '0x4cef52'; // Hex for 5042002
 const RPC_URL = 'https://rpc.testnet.arc.network';
 const EXPLORER_URL = 'https://testnet.arcscan.app';
 const INR_RATE = 94.25; 
@@ -79,7 +79,7 @@ async function setupWallet(addr) {
     fetchBalance();
 }
 
-// --- SEND FEATURE (OPTIMIZED FOR STABLE FEES) ---
+// --- SEND FEATURE (OPTIMIZED FOR NATIVE USDC GAS) ---
 function openSend() {
     if(!userAddress) return connectWallet();
     document.getElementById("sendModal").classList.remove("hidden");
@@ -92,62 +92,43 @@ async function processSend() {
     const amt = document.getElementById("sendAmt").value;
     const btn = document.getElementById("finalSendBtn");
 
-    if(!ethers.utils.isAddress(to)) return alert("Invalid Address!");
-    if(!amt || amt <= 0) return alert("Enter valid amount!");
+    if(!ethers.utils.isAddress(to)) return alert("Invalid Recipient Address!");
+    if(!amt || amt <= 0) return alert("Enter a valid amount!");
 
     try {
-        btn.innerText = "PREPARING..."; btn.disabled = true;
+        btn.innerText = "CHECKING GAS..."; btn.disabled = true;
 
-        // Fetching network gas price
-        let gasPrice = await provider.getGasPrice();
-        const minGasPrice = ethers.utils.parseUnits("20", "gwei");
-
-        // Documentation says min 20 Gwei is enforced
-        if (gasPrice.lt(minGasPrice)) {
-            gasPrice = minGasPrice;
-        }
-        
+        // Arc uses USDC as native token, check balance directly
         const nativeBalance = await provider.getBalance(userAddress);
         if (nativeBalance.isZero()) {
             btn.innerText = "NO GAS (USDC)";
             btn.disabled = false;
-            return alert("Arc uses USDC for gas. Please claim some from faucet.");
+            return alert("You need USDC in your wallet for gas fees.");
         }
 
         const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
-        
         btn.innerText = "WAITING FOR WALLET...";
 
-        // Stable Fee Logic: High gas limit + enforce min 20 Gwei
+        // Set gas fees according to docs (Min 20 Gwei)
         const tx = await contract.transfer(to, ethers.utils.parseUnits(amt, 6), {
-            gasLimit: 150000, 
-            gasPrice: gasPrice 
+            gasLimit: 100000,
+            maxFeePerGas: ethers.utils.parseUnits("25", "gwei"),
+            maxPriorityFeePerGas: ethers.utils.parseUnits("2", "gwei")
         });
         
         btn.innerText = "CONFIRMING...";
-        await tx.wait(1);
-
-        // --- SUCCESS RECEIPT SHOW ---
-        document.getElementById("sendModal").classList.add("hidden");
-        document.getElementById("receiptModal").classList.remove("hidden");
+        await tx.wait();
         
-        document.getElementById("recAmt").innerText = `${amt} USDC`;
-        document.getElementById("recInr").innerText = `≈ ₹${(amt * INR_RATE).toFixed(2)}`;
-        document.getElementById("recTo").innerText = to.substring(0,8) + "..." + to.substring(to.length - 4);
-        
-        const now = new Date();
-        document.getElementById("recTime").innerText = now.toLocaleDateString() + " | " + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
-        btn.innerText = "CONFIRM PAYMENT"; btn.disabled = false;
+        alert("Transaction Successful!");
+        location.reload();
     } catch (e) {
-        console.error("TX Error:", e);
-        const errorReason = e.data?.message || e.message || "Unknown Error";
-        alert("Transaction Failed: " + errorReason);
+        console.error(e);
+        alert("Transaction Failed!");
         btn.innerText = "CONFIRM PAYMENT"; btn.disabled = false;
     }
 }
 
-// --- UTILS & OTHER FEATURES ---
+// --- RECEIVE, SCAN, HISTORY & UTILS ---
 function openReceive() {
     if(!userAddress) return connectWallet();
     document.getElementById("receiveModal").classList.remove("hidden");
@@ -183,19 +164,15 @@ async function openHistory() {
     
     try {
         const contract = new ethers.Contract(USDC_ADDR, ["event Transfer(address indexed from, address indexed to, uint256 value)"], provider);
-        const filterFrom = contract.filters.Transfer(userAddress, null);
-        const filterTo = contract.filters.Transfer(null, userAddress);
+        const filter = contract.filters.Transfer(userAddress, null);
+        const logs = await contract.queryFilter(filter, -1000, "latest");
         
-        const logsFrom = await contract.queryFilter(filterFrom, -1000, "latest");
-        const logsTo = await contract.queryFilter(filterTo, -1000, "latest");
-        const allLogs = [...logsFrom, ...logsTo].sort((a, b) => b.blockNumber - a.blockNumber);
-        
-        if(allLogs.length === 0) {
-            list.innerHTML = `<p class="text-center text-xs opacity-20 mt-10">No transactions found</p>`;
+        if(logs.length === 0) {
+            list.innerHTML = `<p class="text-center text-xs opacity-20 mt-10">No transactions</p>`;
             return;
         }
 
-        list.innerHTML = allLogs.slice(0, 15).map(l => `
+        list.innerHTML = logs.slice(-15).reverse().map(l => `
             <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 mb-2">
                 <div class="flex justify-between items-center">
                     <p class="text-[9px] font-black ${l.args.from.toLowerCase() === userAddress.toLowerCase() ? 'text-red-500' : 'text-green-500'}">
@@ -208,16 +185,7 @@ async function openHistory() {
                 </p>
             </div>
         `).join('');
-    } catch (e) { list.innerHTML = "Error loading logs."; }
-}
-
-function fetchBalance() {
-    if(!userAddress) return;
-    provider.getBalance(userAddress).then(bal => {
-        const f = ethers.utils.formatUnits(bal, 18);
-        document.getElementById("usdcBal").innerText = parseFloat(f).toFixed(2);
-        document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN', {maximumFractionDigits: 2});
-    });
+    } catch (e) { list.innerHTML = "Error loading history."; }
 }
 
 function disconnectWallet() {
@@ -238,9 +206,20 @@ function copyAddr() {
     alert("Address Copied!");
 }
 
+async function fetchBalance() {
+    if(!userAddress) return;
+    try {
+        // Native USDC Balance check (18 decimals as per Arc Gas docs)
+        const rawBal = await provider.getBalance(userAddress);
+        const f = ethers.utils.formatUnits(rawBal, 18);
+        document.getElementById("usdcBal").innerText = parseFloat(f).toFixed(2);
+        document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN');
+    } catch (e) { console.error("Balance Load Failed"); }
+}
+
 window.onclick = (e) => {
     if (!e.target.matches('#walletBtn, #walletBtn *')) {
         const menu = document.getElementById("profileMenu");
-        if (menu && menu.classList.contains("show")) menu.classList.remove("show");
+        if (menu) menu.classList.remove("show");
     }
 }
