@@ -1,7 +1,9 @@
-// --- ARC NETWORK CONFIG ---
+// --- ARC NETWORK CONFIG (UPDATED) ---
 const USDC_ADDR = "0x3600000000000000000000000000000000000000"; 
-const ARC_CHAIN_ID = '0x4cef52'; 
-const INR_RATE = 94.25; // Updated Rate
+const ARC_CHAIN_ID = '0x4cef52'; // Hex for 5042002
+const RPC_URL = 'https://rpc.testnet.arc.network';
+const EXPLORER_URL = 'https://testnet.arcscan.app';
+const INR_RATE = 94.25; 
 
 let userAddress = "", provider, signer, codeReader;
 
@@ -36,12 +38,8 @@ async function toggleProfile() {
 }
 
 async function connectWallet() {
-    if (!window.ethereum) return alert("Please install MetaMask or OKX Wallet!");
+    if (!window.ethereum) return alert("Please install MetaMask!");
     try {
-        await window.ethereum.request({ 
-            method: 'wallet_requestPermissions', 
-            params: [{ eth_accounts: {} }] 
-        });
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         
         try {
@@ -56,9 +54,9 @@ async function connectWallet() {
                     params: [{
                         chainId: ARC_CHAIN_ID,
                         chainName: 'Arc Network Testnet',
-                        rpcUrls: ['https://rpc-testnet.arcnetwork.io'],
-                        nativeCurrency: { name: 'ARC', symbol: 'ARC', decimals: 18 },
-                        blockExplorerUrls: ['https://explorer-testnet.arcnetwork.io']
+                        rpcUrls: [RPC_URL],
+                        nativeCurrency: { name: 'USD Coin', symbol: 'USDC', decimals: 18 },
+                        blockExplorerUrls: [EXPLORER_URL]
                     }]
                 });
             }
@@ -81,7 +79,7 @@ async function setupWallet(addr) {
     fetchBalance();
 }
 
-// --- SEND FEATURE ---
+// --- SEND FEATURE (OPTIMIZED FOR NATIVE USDC GAS) ---
 function openSend() {
     if(!userAddress) return connectWallet();
     document.getElementById("sendModal").classList.remove("hidden");
@@ -100,20 +98,22 @@ async function processSend() {
     try {
         btn.innerText = "CHECKING GAS..."; btn.disabled = true;
 
-        const gasBalance = await provider.getBalance(userAddress);
-        if (gasBalance.isZero()) {
-            btn.innerText = "NO GAS (ARC)";
+        // Arc uses USDC as native token, check balance directly
+        const nativeBalance = await provider.getBalance(userAddress);
+        if (nativeBalance.isZero()) {
+            btn.innerText = "NO GAS (USDC)";
             btn.disabled = false;
-            return alert("You need ARC tokens for gas fees. Please claim from Faucet.");
+            return alert("You need USDC in your wallet for gas fees.");
         }
 
         const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
-        
         btn.innerText = "WAITING FOR WALLET...";
 
-        // Added manual gasLimit to stop "Claim via Faucet" errors on OKX
+        // Set gas fees according to docs (Min 20 Gwei)
         const tx = await contract.transfer(to, ethers.utils.parseUnits(amt, 6), {
-            gasLimit: 80000 
+            gasLimit: 100000,
+            maxFeePerGas: ethers.utils.parseUnits("25", "gwei"),
+            maxPriorityFeePerGas: ethers.utils.parseUnits("2", "gwei")
         });
         
         btn.innerText = "CONFIRMING...";
@@ -128,7 +128,7 @@ async function processSend() {
     }
 }
 
-// --- RECEIVE FEATURE ---
+// --- RECEIVE, SCAN, HISTORY & UTILS ---
 function openReceive() {
     if(!userAddress) return connectWallet();
     document.getElementById("receiveModal").classList.remove("hidden");
@@ -138,7 +138,6 @@ function openReceive() {
     new QRCode(qrDiv, { text: userAddress, width: 200, height: 200, colorDark: "#121271" });
 }
 
-// --- SCAN & PAY FEATURE ---
 async function openScan() {
     if(!userAddress) return connectWallet();
     document.getElementById("scanModal").classList.remove("hidden");
@@ -157,7 +156,6 @@ async function openScan() {
     } catch (e) { closeModal('scanModal'); }
 }
 
-// --- HISTORY FEATURE ---
 async function openHistory() {
     if(!userAddress) return connectWallet();
     document.getElementById("historyModal").classList.remove("hidden");
@@ -190,7 +188,6 @@ async function openHistory() {
     } catch (e) { list.innerHTML = "Error loading history."; }
 }
 
-// --- UTILS ---
 function disconnectWallet() {
     localStorage.removeItem("isWalletConnected");
     location.reload();
@@ -212,9 +209,9 @@ function copyAddr() {
 async function fetchBalance() {
     if(!userAddress) return;
     try {
-        const contract = new ethers.Contract(USDC_ADDR, ["function balanceOf(address) view returns (uint256)"], provider);
-        const bal = await contract.balanceOf(userAddress);
-        const f = ethers.utils.formatUnits(bal, 6);
+        // Native USDC Balance check (18 decimals as per Arc Gas docs)
+        const rawBal = await provider.getBalance(userAddress);
+        const f = ethers.utils.formatUnits(rawBal, 18);
         document.getElementById("usdcBal").innerText = parseFloat(f).toFixed(2);
         document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN');
     } catch (e) { console.error("Balance Load Failed"); }
