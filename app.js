@@ -1,6 +1,6 @@
 // --- CONFIGURATION ---
 const USDC_ADDR = "0x3600000000000000000000000000000000000000"; 
-const MERCHANT_ADDRESS = "0x7a67f9b3BB918182Ad94182aC10f80F9619be81C"; // Aapka Address
+const MERCHANT_ADDRESS = "0x7a67f9b3BB918182Ad94182aC10f80F9619be81C"; 
 const ARC_CHAIN_ID = '0x4cef52'; 
 const RPC_URL = 'https://rpc.testnet.arc.network';
 const INR_RATE = 94.25; 
@@ -51,6 +51,7 @@ function setupWallet(addr) {
     fetchBalance();
 }
 
+// --- DYNAMIC BILLING LOGIC (FIXED) ---
 function openBilling(serviceType) {
     if(!userAddress) return connectWallet();
     currentService = serviceType.toUpperCase();
@@ -59,7 +60,7 @@ function openBilling(serviceType) {
     const label = document.getElementById("inputLabel");
     const input = document.getElementById("sendTo");
     const billingFields = document.getElementById("billingFields");
-    const noteBox = document.getElementById("sendPurpose"); // Note dabba check karne ke liye
+    const noteBox = document.getElementById("sendPurpose");
 
     modal.classList.remove("hidden");
     
@@ -111,15 +112,6 @@ function openBilling(serviceType) {
             </select>
         `;
     }
-}
-
-        billingFields.innerHTML = `
-            <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Select Provider</label>
-            <select class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold mb-4">
-                ${billerOptions}
-            </select>
-        `;
-    }
     document.getElementById("sendAmt").value = "";
     document.getElementById("inrCalcDisplay").innerText = "≈ (0.00 USDC)";
 }
@@ -133,6 +125,10 @@ function openSend() {
     document.getElementById("sendTo").placeholder = "0x...";
     document.getElementById("sendTo").classList.add("font-mono");
     document.getElementById("billingFields").innerHTML = "";
+    
+    // Direct Send mein Note wapas dikhao
+    const noteBox = document.getElementById("sendPurpose");
+    if(noteBox) noteBox.classList.remove("hidden");
 }
 
 // --- CALCULATION & PAYMENT ---
@@ -217,12 +213,9 @@ function disconnectWallet() { localStorage.removeItem("isWalletConnected"); loca
 function openReceive() {
     if(!userAddress) return connectWallet();
     document.getElementById("receiveModal").classList.remove("hidden");
-    
     const qrDiv = document.getElementById("qrcode");
-    qrDiv.innerHTML = ""; // Purana QR hatao
+    qrDiv.innerHTML = ""; 
     document.getElementById("myAddr").innerText = userAddress;
-
-    // Naya QR Code generate karo
     new QRCode(qrDiv, {
         text: userAddress,
         width: 180,
@@ -232,78 +225,29 @@ function openReceive() {
     });
 }
 
-// --- LIVE BLOCKCHAIN HISTORY FETCH ---
 async function openHistory() {
-    if (!userAddress) {
-        alert("Pehle Wallet Connect karo bhai!");
-        return connectWallet();
-    }
-
+    if (!userAddress) return connectWallet();
     const modal = document.getElementById("historyModal");
     const list = document.getElementById("txList");
-    
-    // Modal dikhao aur Loading text daalo
     modal.classList.remove("hidden");
-    list.innerHTML = `
-        <div class="flex flex-col items-center justify-center py-10 opacity-30">
-            <i class="fa-solid fa-circle-notch animate-spin text-2xl mb-2"></i>
-            <p class="text-[10px] font-bold uppercase tracking-widest">Fetching from Arc Blockchain...</p>
-        </div>
-    `;
-
+    list.innerHTML = `<div class="text-center py-10 opacity-30"><i class="fa-solid fa-circle-notch animate-spin"></i></div>`;
     try {
-        // Blockchain Contract Setup (USDC Transfer Event)
-        const contract = new ethers.Contract(USDC_ADDR, [
-            "event Transfer(address indexed from, address indexed to, uint256 value)"
-        ], provider);
-
-        // Filter: Sirf wo transactions jisme 'from' user ka address ho
+        const contract = new ethers.Contract(USDC_ADDR, ["event Transfer(address indexed from, address indexed to, uint256 value)"], provider);
         const filter = contract.filters.Transfer(userAddress, null);
-        
-        // Pichle 5000 blocks scan karo (Live fetch)
         const logs = await contract.queryFilter(filter, -5000, "latest");
-
-        if (logs.length === 0) {
-            list.innerHTML = `<p class="text-center text-xs opacity-20 mt-10 font-bold italic">No Transactions Found on Blockchain.</p>`;
-            return;
-        }
-
-        // Logs ko reverse karo taaki latest upar aaye
+        if (logs.length === 0) { list.innerHTML = `<p class="text-center opacity-20">No TX Found</p>`; return; }
         list.innerHTML = logs.reverse().slice(0, 20).map(l => {
             const amountUSDC = ethers.utils.formatUnits(l.args.value, 6);
-            const amountINR = (amountUSDC * INR_RATE).toFixed(2);
-            
-            return `
-            <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 mb-3 active:scale-95 transition-all">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-[9px] font-black text-red-500 tracking-tighter italic">SENT SUCCESS</p>
-                        <p class="text-[8px] font-mono opacity-40 mt-1 truncate w-40">To: ${l.args.to}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-sm font-black italic text-[#121271]">₹${amountINR}</p>
-                        <p class="text-[8px] font-bold opacity-30">${amountUSDC} USDC</p>
-                    </div>
-                </div>
-                <div class="mt-2 pt-2 border-t border-dashed border-gray-200 flex justify-between items-center">
-                    <p class="text-[7px] font-bold opacity-20 tracking-widest">ARC SCAN LOG</p>
-                    <a href="https://testnet.arcscan.app/tx/${l.transactionHash}" target="_blank" class="text-[7px] font-black text-blue-500 underline">VIEW TX</a>
-                </div>
-            </div>`;
+            return `<div class="bg-gray-50 p-4 rounded-2xl mb-3"><div class="flex justify-between"><div><p class="text-[9px] font-black text-red-500 uppercase">SENT</p><p class="text-[8px] truncate w-40 opacity-40">To: ${l.args.to}</p></div><div class="text-right"><p class="text-sm font-black italic">₹${(amountUSDC * INR_RATE).toFixed(2)}</p></div></div></div>`;
         }).join('');
-
-    } catch (e) {
-        console.error("Blockchain Fetch Error:", e);
-        list.innerHTML = `<p class="text-center text-xs text-red-500 font-bold mt-10 uppercase">Blockchain busy. Try again!</p>`;
-    }
+    } catch (e) { list.innerHTML = `<p class="text-center text-red-500">Error</p>`; }
 }
 
 function updateAmountFromPlan(selectElement) {
     const amount = selectElement.value;
     const amountInput = document.getElementById("sendAmt");
-    
     if(amount > 0) {
-        amountInput.value = amount; // Amount box mein price bharega
-        updateInrCalc(); // USDC calculation ko refresh karega
+        amountInput.value = amount;
+        updateInrCalc();
     }
 }
