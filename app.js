@@ -188,3 +188,21 @@ function closeModal(id) {
 function copyAddr() { navigator.clipboard.writeText(userAddress); alert("Copied!"); }
 function toggleProfile() { if(!userAddress) connectWallet(); else document.getElementById("profileMenu").classList.toggle("show"); }
 function disconnectWallet() { localStorage.removeItem("isWalletConnected"); location.reload(); }
+
+function openReceive() {
+    if(!userAddress) return connectWallet();
+    document.getElementById("receiveModal").classList.remove("hidden");
+    
+    const qrDiv = document.getElementById("qrcode");
+    qrDiv.innerHTML = ""; // Purana QR hatao
+    document.getElementById("myAddr").innerText = userAddress;
+
+    // Naya QR Code generate karo
+    new QRCode(qrDiv, {
+        text: userAddress,
+        width: 180,
+        height: 180,
+        colorDark : "#121271",
+        colorLight : "#ffffff"
+    });
+}
