@@ -79,7 +79,7 @@ async function setupWallet(addr) {
     fetchBalance();
 }
 
-// --- SEND FEATURE (SAFE & FAST) ---
+// --- SEND FEATURE (OPTIMIZED FOR STABLE FEES) ---
 function openSend() {
     if(!userAddress) return connectWallet();
     document.getElementById("sendModal").classList.remove("hidden");
@@ -98,30 +98,36 @@ async function processSend() {
     try {
         btn.innerText = "PREPARING..."; btn.disabled = true;
 
-        // Fetch dynamic gas from network
-        const gasPrice = await provider.getGasPrice();
+        // Fetching network gas price
+        let gasPrice = await provider.getGasPrice();
+        const minGasPrice = ethers.utils.parseUnits("20", "gwei");
+
+        // Documentation says min 20 Gwei is enforced
+        if (gasPrice.lt(minGasPrice)) {
+            gasPrice = minGasPrice;
+        }
         
         const nativeBalance = await provider.getBalance(userAddress);
         if (nativeBalance.isZero()) {
             btn.innerText = "NO GAS (USDC)";
             btn.disabled = false;
-            return alert("You need USDC for gas fees on Arc Network.");
+            return alert("Arc uses USDC for gas. Please claim some from faucet.");
         }
 
         const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
         
-        btn.innerText = "CONFIRMING...";
+        btn.innerText = "WAITING FOR WALLET...";
 
-        // Transaction with Safe Gas Limit and Dynamic Price
+        // Stable Fee Logic: High gas limit + enforce min 20 Gwei
         const tx = await contract.transfer(to, ethers.utils.parseUnits(amt, 6), {
             gasLimit: 150000, 
             gasPrice: gasPrice 
         });
         
-        btn.innerText = "PENDING...";
-        await tx.wait(1); // Wait for confirmation
+        btn.innerText = "CONFIRMING...";
+        await tx.wait(1);
 
-        // --- SHOW RECEIPT CARD ---
+        // --- SUCCESS RECEIPT SHOW ---
         document.getElementById("sendModal").classList.add("hidden");
         document.getElementById("receiptModal").classList.remove("hidden");
         
@@ -141,7 +147,7 @@ async function processSend() {
     }
 }
 
-// --- RECEIVE, SCAN, HISTORY & UTILS ---
+// --- UTILS & OTHER FEATURES ---
 function openReceive() {
     if(!userAddress) return connectWallet();
     document.getElementById("receiveModal").classList.remove("hidden");
