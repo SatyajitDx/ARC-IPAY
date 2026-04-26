@@ -1,6 +1,6 @@
 const USDC_ADDR = "0x3600000000000000000000000000000000000000"; 
 const ARC_CHAIN_ID = '0x4cef52'; 
-const INR_RATE = 83.50;
+const INR_RATE = 94.25;
 
 let userAddress = "", provider, signer;
 
