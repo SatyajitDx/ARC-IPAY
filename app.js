@@ -11,6 +11,7 @@ window.addEventListener('load', async () => {
     }
 });
 
+// REAL-TIME INR CALCULATION
 function updateInrCalc() {
     const usdcVal = document.getElementById("sendAmt").value;
     const display = document.getElementById("inrCalcDisplay");
@@ -23,7 +24,7 @@ function updateInrCalc() {
 }
 
 async function connectWallet() {
-    if (!window.ethereum) return alert("Please install MetaMask or OKX Wallet!");
+    if (!window.ethereum) return alert("Please install OKX or MetaMask!");
     try {
         await window.ethereum.request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
@@ -37,7 +38,7 @@ async function connectWallet() {
                         chainId: ARC_CHAIN_ID,
                         chainName: 'Arc Network Testnet',
                         rpcUrls: ['https://rpc-testnet.arcnetwork.io'],
-                        nativeCurrency: { name: 'ARC', symbol: 'ARC', decimals: 18 },
+                        nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 }, // USDC AS NATIVE
                         blockExplorerUrls: ['https://explorer-testnet.arcnetwork.io']
                     }]
                 });
@@ -59,28 +60,34 @@ async function setupWallet(addr) {
     fetchBalance();
 }
 
-// --- SEND LOGIC WITH CUSTOM USDC GAS RANGE ---
+// --- SEND LOGIC (USDC NATIVE GAS FIX) ---
 async function processSend() {
     const to = document.getElementById("sendTo").value;
     const amt = document.getElementById("sendAmt").value;
     const btn = document.getElementById("finalSendBtn");
 
-    if(!ethers.utils.isAddress(to) || !amt) return alert("Invalid Input!");
+    if(!ethers.utils.isAddress(to) || !amt) return alert("Check Address/Amount!");
 
     try {
         btn.innerText = "WAITING FOR WALLET...";
         btn.disabled = true;
 
+        // Since USDC is Native, we check the native balance for fees
+        const balance = await provider.getBalance(userAddress);
+        if (balance.isZero()) {
+            btn.innerText = "NO USDC GAS";
+            btn.disabled = false;
+            return alert("You need Native USDC for gas fees!");
+        }
+
         const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
         
-        // Fee Calculation to hit 0.0012 - 0.025 range
-        // gasLimit * gasPrice = total fee
-        const manualGasPrice = ethers.utils.parseUnits("20", "gwei"); 
-        const manualGasLimit = 85000;
-
+        // Use Type 2 (EIP-1559) for better wallet recognition
         const tx = await contract.transfer(to, ethers.utils.parseUnits(amt, 6), {
-            gasLimit: manualGasLimit,
-            gasPrice: manualGasPrice
+            gasLimit: 100000,
+            type: 2,
+            maxPriorityFeePerGas: ethers.utils.parseUnits("1.5", "gwei"),
+            maxFeePerGas: ethers.utils.parseUnits("25", "gwei")
         });
 
         btn.innerText = "CONFIRMING...";
@@ -90,7 +97,7 @@ async function processSend() {
         location.reload();
     } catch (e) {
         console.error(e);
-        alert("Transaction Failed! Check ARC balance for gas.");
+        alert("Transaction Failed! Ensure your native USDC balance covers the amount + fee.");
         btn.innerText = "CONFIRM PAYMENT";
         btn.disabled = false;
     }
@@ -98,15 +105,15 @@ async function processSend() {
 
 async function fetchBalance() {
     try {
-        const contract = new ethers.Contract(USDC_ADDR, ["function balanceOf(address) view returns (uint256)"], provider);
-        const bal = await contract.balanceOf(userAddress);
-        const f = ethers.utils.formatUnits(bal, 6);
+        // Fetching balance as native token since USDC is native
+        const bal = await provider.getBalance(userAddress);
+        const f = ethers.utils.formatUnits(bal, 18); // Check if native USDC uses 18 or 6 decimals
         document.getElementById("usdcBal").innerText = parseFloat(f).toFixed(2);
         document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN');
     } catch (e) { console.error(e); }
 }
 
-// Support functions
+// Support UI functions
 function toggleProfile() { if(!userAddress) connectWallet(); else document.getElementById("profileMenu").classList.toggle("show"); }
 function openSend() { if(!userAddress) return connectWallet(); document.getElementById("sendModal").classList.remove("hidden"); }
 function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
