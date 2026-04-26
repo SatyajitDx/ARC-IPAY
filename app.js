@@ -51,7 +51,7 @@ function setupWallet(addr) {
     fetchBalance();
 }
 
-// --- DYNAMIC BILLING LOGIC (FIXED) ---
+// --- DYNAMIC BILLING LOGIC ---
 function openBilling(serviceType) {
     if(!userAddress) return connectWallet();
     currentService = serviceType.toUpperCase();
@@ -64,7 +64,7 @@ function openBilling(serviceType) {
 
     modal.classList.remove("hidden");
     
-    // Title Change: Electric ke liye Bill, baaki ke liye Recharge
+    // Electric ke liye 'BILL' aur baaki ke liye 'RECHARGE'
     modal.querySelector('h3').innerText = currentService === 'ELECTRIC' ? 'ELECTRICITY BILL' : `${currentService} RECHARGE`;
     
     // Recharge/Bill mein 'Add a note' chhupa do
@@ -126,7 +126,6 @@ function openSend() {
     document.getElementById("sendTo").classList.add("font-mono");
     document.getElementById("billingFields").innerHTML = "";
     
-    // Direct Send mein Note wapas dikhao
     const noteBox = document.getElementById("sendPurpose");
     if(noteBox) noteBox.classList.remove("hidden");
 }
@@ -158,9 +157,9 @@ async function processSend() {
 
         const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
 
-        // --- OFFICIAL ARC GAS LOGIC (Fixed for TxPool Error) ---
-        const baseFee = ethers.utils.parseUnits("20", "gwei"); // Arc Testnet Min
-        const priorityFee = ethers.utils.parseUnits("2", "gwei"); // Congestion tip
+        // Official Arc Gas Settings
+        const baseFee = ethers.utils.parseUnits("20", "gwei"); 
+        const priorityFee = ethers.utils.parseUnits("2", "gwei"); 
 
         const tx = await contract.transfer(
             finalDest, 
@@ -171,7 +170,6 @@ async function processSend() {
                 gasLimit: 120000 
             }
         );
-        // ------------------------------------------------------
 
         await tx.wait(1);
         document.getElementById("sendModal").classList.add("hidden");
@@ -182,8 +180,6 @@ async function processSend() {
         console.error(e);
         document.getElementById("sendModal").classList.add("hidden");
         document.getElementById("failModal").classList.remove("hidden");
-        
-        // Error message agar txpool full hai
         document.getElementById("failReason").innerText = e.message.includes("txpool") 
             ? "Network Busy (TxPool Full). Try again in 1 min!" 
             : e.message.substring(0, 60);
@@ -225,6 +221,7 @@ function closeModal(id) {
     document.getElementById(id).classList.add("hidden"); 
     if(id === 'scanModal' && codeReader) codeReader.reset();
 }
+
 function copyAddr() { navigator.clipboard.writeText(userAddress); alert("Copied!"); }
 function toggleProfile() { if(!userAddress) connectWallet(); else document.getElementById("profileMenu").classList.toggle("show"); }
 function disconnectWallet() { localStorage.removeItem("isWalletConnected"); location.reload(); }
@@ -235,13 +232,7 @@ function openReceive() {
     const qrDiv = document.getElementById("qrcode");
     qrDiv.innerHTML = ""; 
     document.getElementById("myAddr").innerText = userAddress;
-    new QRCode(qrDiv, {
-        text: userAddress,
-        width: 180,
-        height: 180,
-        colorDark : "#121271",
-        colorLight : "#ffffff"
-    });
+    new QRCode(qrDiv, { text: userAddress, width: 180, height: 180, colorDark : "#121271", colorLight : "#ffffff" });
 }
 
 async function openHistory() {
@@ -249,17 +240,22 @@ async function openHistory() {
     const modal = document.getElementById("historyModal");
     const list = document.getElementById("txList");
     modal.classList.remove("hidden");
-    list.innerHTML = `<div class="text-center py-10 opacity-30"><i class="fa-solid fa-circle-notch animate-spin"></i></div>`;
+    list.innerHTML = `<div class="flex flex-col items-center justify-center py-10 opacity-30"><i class="fa-solid fa-circle-notch animate-spin text-2xl mb-2"></i><p class="text-[10px] font-black uppercase tracking-widest">Scanning Blockchain...</p></div>`;
     try {
         const contract = new ethers.Contract(USDC_ADDR, ["event Transfer(address indexed from, address indexed to, uint256 value)"], provider);
         const filter = contract.filters.Transfer(userAddress, null);
         const logs = await contract.queryFilter(filter, -5000, "latest");
         if (logs.length === 0) { list.innerHTML = `<p class="text-center opacity-20">No TX Found</p>`; return; }
-        list.innerHTML = logs.reverse().slice(0, 20).map(l => {
-            const amountUSDC = ethers.utils.formatUnits(l.args.value, 6);
-            return `<div class="bg-gray-50 p-4 rounded-2xl mb-3"><div class="flex justify-between"><div><p class="text-[9px] font-black text-red-500 uppercase">SENT</p><p class="text-[8px] truncate w-40 opacity-40">To: ${l.args.to}</p></div><div class="text-right"><p class="text-sm font-black italic">₹${(amountUSDC * INR_RATE).toFixed(2)}</p></div></div></div>`;
+        list.innerHTML = logs.reverse().slice(0, 15).map(l => {
+            const amt = ethers.utils.formatUnits(l.args.value, 6);
+            return `<div class="bg-gray-50 p-4 rounded-3xl mb-3 border border-gray-100">
+                <div class="flex justify-between"><div><p class="text-[9px] font-black text-red-500 italic">SENT SUCCESS</p><p class="text-[8px] truncate w-36 opacity-40">To: ${l.args.to}</p></div>
+                <div class="text-right"><p class="text-sm font-black italic">₹${(amt * INR_RATE).toFixed(2)}</p></div></div>
+                <div class="mt-2 pt-2 border-t border-dashed border-gray-200 flex justify-between items-center">
+                <p class="text-[7px] font-bold opacity-20 uppercase tracking-widest text-[#121271]">Verified on Arc</p>
+                <a href="https://testnet.arcscan.app/tx/${l.transactionHash}" target="_blank" class="text-[7px] font-black text-blue-500 underline uppercase">View on Scan</a></div></div>`;
         }).join('');
-    } catch (e) { list.innerHTML = `<p class="text-center text-red-500">Error</p>`; }
+    } catch (e) { list.innerHTML = `<p class="text-center text-red-500 uppercase font-black text-xs">Node Busy</p>`; }
 }
 
 function updateAmountFromPlan(selectElement) {
