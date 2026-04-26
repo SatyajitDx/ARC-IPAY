@@ -51,7 +51,6 @@ function setupWallet(addr) {
     fetchBalance();
 }
 
-// --- DYNAMIC BILLING LOGIC ---
 function openBilling(serviceType) {
     if(!userAddress) return connectWallet();
     currentService = serviceType.toUpperCase();
@@ -60,9 +59,16 @@ function openBilling(serviceType) {
     const label = document.getElementById("inputLabel");
     const input = document.getElementById("sendTo");
     const billingFields = document.getElementById("billingFields");
+    const noteBox = document.getElementById("sendPurpose"); // Note dabba check karne ke liye
 
     modal.classList.remove("hidden");
-    modal.querySelector('h3').innerText = `${currentService} RECHARGE`;
+    
+    // Title Change: Electric ke liye Bill, baaki ke liye Recharge
+    modal.querySelector('h3').innerText = currentService === 'ELECTRIC' ? 'ELECTRICITY BILL' : `${currentService} RECHARGE`;
+    
+    // Recharge/Bill mein 'Add a note' chhupa do
+    if(noteBox) noteBox.classList.add("hidden");
+
     billingFields.innerHTML = ""; 
 
     if(currentService === 'MOBILE') {
@@ -73,10 +79,7 @@ function openBilling(serviceType) {
         billingFields.innerHTML = `
             <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Operator</label>
             <select class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold mb-4">
-                <option>JIO Prepaid</option>
-                <option>Airtel Prepaid</option>
-                <option>VI Prepaid</option>
-                <option>BSNL</option>
+                <option>JIO Prepaid</option><option>Airtel Prepaid</option><option>VI Prepaid</option><option>BSNL</option>
             </select>
             <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Select Plan</label>
             <select id="planSelect" onchange="updateAmountFromPlan(this)" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold mb-4">
@@ -87,13 +90,11 @@ function openBilling(serviceType) {
                 <option value="666">Premium Pack ₹666</option>
             </select>
         `;
-   } else {
-        // Label change: Consumer ID ya Account No dikhane ke liye
+    } else {
         label.innerText = currentService === 'ELECTRIC' ? "Consumer Number" : "Consumer ID / Account No";
         input.placeholder = `Enter your ${currentService} ID`;
         input.classList.remove("font-mono");
         
-        // Biller Providers ke liye dropdown logic
         let billerOptions = "";
         if(currentService === 'ELECTRIC') {
             billerOptions = `<option>Adani Electricity</option><option>Tata Power</option><option>MSEDCL</option><option>UPPCL</option>`;
@@ -102,6 +103,15 @@ function openBilling(serviceType) {
         } else if(currentService === 'WIFI') {
             billerOptions = `<option>Airtel Xstream</option><option>Jio Fiber</option><option>ACT Fibernet</option>`;
         }
+
+        billingFields.innerHTML = `
+            <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Select Provider</label>
+            <select class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold mb-4">
+                ${billerOptions}
+            </select>
+        `;
+    }
+}
 
         billingFields.innerHTML = `
             <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Select Provider</label>
