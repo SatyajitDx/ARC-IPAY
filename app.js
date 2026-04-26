@@ -1,6 +1,7 @@
+// --- ARC NETWORK CONFIG ---
 const USDC_ADDR = "0x3600000000000000000000000000000000000000"; 
 const ARC_CHAIN_ID = '0x4cef52'; 
-const INR_RATE = 83.50;
+const INR_RATE = 94.25; // Updated Rate
 
 let userAddress = "", provider, signer, codeReader;
 
@@ -11,6 +12,22 @@ window.addEventListener('load', async () => {
         if (accounts.length > 0) setupWallet(accounts[0]);
     }
 });
+
+// --- REAL-TIME INR CALCULATION ---
+function updateInrCalc() {
+    const usdcVal = document.getElementById("sendAmt").value;
+    const display = document.getElementById("inrCalcDisplay");
+    
+    if (usdcVal > 0) {
+        const inrVal = (usdcVal * INR_RATE).toLocaleString('en-IN', { 
+            maximumFractionDigits: 2, 
+            minimumFractionDigits: 2 
+        });
+        display.innerText = `≈ (₹${inrVal})`;
+    } else {
+        display.innerText = `≈ (₹0.00)`;
+    }
+}
 
 // --- WALLET CORE LOGIC ---
 async function toggleProfile() {
@@ -64,12 +81,12 @@ async function setupWallet(addr) {
     fetchBalance();
 }
 
-// --- SEND FEATURE (WITH OKX GAS FIX) ---
+// --- SEND FEATURE ---
 function openSend() {
     if(!userAddress) return connectWallet();
     document.getElementById("sendModal").classList.remove("hidden");
-    document.getElementById("sendTo").value = "";
     document.getElementById("sendAmt").value = "";
+    document.getElementById("inrCalcDisplay").innerText = "≈ (₹0.00)";
 }
 
 async function processSend() {
@@ -83,19 +100,18 @@ async function processSend() {
     try {
         btn.innerText = "CHECKING GAS..."; btn.disabled = true;
 
-        // Check Native ARC balance for fees
         const gasBalance = await provider.getBalance(userAddress);
         if (gasBalance.isZero()) {
             btn.innerText = "NO GAS (ARC)";
             btn.disabled = false;
-            return alert("You need ARC tokens for gas fees. Please claim from Arc Faucet.");
+            return alert("You need ARC tokens for gas fees. Please claim from Faucet.");
         }
 
         const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
         
         btn.innerText = "WAITING FOR WALLET...";
 
-        // OKX FIX: Adding manual gasLimit and gasPrice to avoid 'Unknown Transaction' errors
+        // Added manual gasLimit to stop "Claim via Faucet" errors on OKX
         const tx = await contract.transfer(to, ethers.utils.parseUnits(amt, 6), {
             gasLimit: 80000 
         });
@@ -107,7 +123,7 @@ async function processSend() {
         location.reload();
     } catch (e) {
         console.error(e);
-        alert("Transaction Failed! Make sure you have ARC for gas.");
+        alert("Transaction Failed!");
         btn.innerText = "CONFIRM PAYMENT"; btn.disabled = false;
     }
 }
@@ -134,14 +150,11 @@ async function openScan() {
         videoElem.play();
         const result = await codeReader.decodeFromVideoElement(videoElem);
         if(ethers.utils.isAddress(result.text)) {
-            stopCamera();
             closeModal('scanModal');
             document.getElementById("sendModal").classList.remove("hidden");
             document.getElementById("sendTo").value = result.text;
         }
-    } catch (e) { 
-        closeModal('scanModal'); 
-    }
+    } catch (e) { closeModal('scanModal'); }
 }
 
 // --- HISTORY FEATURE ---
@@ -183,16 +196,12 @@ function disconnectWallet() {
     location.reload();
 }
 
-function stopCamera() {
-    const video = document.getElementById("scanVideo");
-    if (video && video.srcObject) {
-        video.srcObject.getTracks().forEach(track => track.stop());
-    }
-}
-
 function closeModal(id) {
     document.getElementById(id).classList.add("hidden");
-    if(id === 'scanModal') stopCamera();
+    if(id === 'scanModal' && codeReader) {
+        const stream = document.getElementById("scanVideo").srcObject;
+        if(stream) stream.getTracks().forEach(t => t.stop());
+    }
 }
 
 function copyAddr() {
