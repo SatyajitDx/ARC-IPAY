@@ -1,228 +1,124 @@
-// --- ARC NETWORK CONFIG ---
-const USDC_ADDR = "0x3600000000000000000000000000000000000000"; 
-const ARC_CHAIN_ID = '0x4cef52'; 
-const INR_RATE = 94.25; // Updated Rate
-
-let userAddress = "", provider, signer, codeReader;
-
-// --- INITIALIZE ON LOAD ---
-window.addEventListener('load', async () => {
-    if (window.ethereum && localStorage.getItem("isWalletConnected") === "true") {
-        const accounts = await window.ethereum.request({ method: "eth_accounts" });
-        if (accounts.length > 0) setupWallet(accounts[0]);
-    }
-});
-
-// --- REAL-TIME INR CALCULATION ---
-function updateInrCalc() {
-    const usdcVal = document.getElementById("sendAmt").value;
-    const display = document.getElementById("inrCalcDisplay");
-    
-    if (usdcVal > 0) {
-        const inrVal = (usdcVal * INR_RATE).toLocaleString('en-IN', { 
-            maximumFractionDigits: 2, 
-            minimumFractionDigits: 2 
-        });
-        display.innerText = `≈ (₹${inrVal})`;
-    } else {
-        display.innerText = `≈ (₹0.00)`;
-    }
-}
-
-// --- WALLET CORE LOGIC ---
-async function toggleProfile() {
-    if (!userAddress) connectWallet();
-    else document.getElementById("profileMenu").classList.toggle("show");
-}
-
-async function connectWallet() {
-    if (!window.ethereum) return alert("Please install MetaMask or OKX Wallet!");
-    try {
-        await window.ethereum.request({ 
-            method: 'wallet_requestPermissions', 
-            params: [{ eth_accounts: {} }] 
-        });
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        
-        try {
-            await window.ethereum.request({ 
-                method: 'wallet_switchEthereumChain', 
-                params: [{ chainId: ARC_CHAIN_ID }] 
-            });
-        } catch (e) {
-            if (e.code === 4902) {
-                await window.ethereum.request({
-                    method: 'wallet_addEthereumChain',
-                    params: [{
-                        chainId: ARC_CHAIN_ID,
-                        chainName: 'Arc Network Testnet',
-                        rpcUrls: ['https://rpc-testnet.arcnetwork.io'],
-                        nativeCurrency: { name: 'ARC', symbol: 'ARC', decimals: 18 },
-                        blockExplorerUrls: ['https://explorer-testnet.arcnetwork.io']
-                    }]
-                });
-            }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <title>ARC INDIPAY - WEB3 OFFICIAL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+    <style>
+        body { 
+            background: linear-gradient(160deg, #FF9933 0%, #FFFFFF 50%, #138808 100%) !important; 
+            min-height: 100vh; font-family: sans-serif; margin: 0; overflow-x: hidden; 
         }
-        setupWallet(accounts[0]);
-    } catch (e) { console.error("Connection Cancelled", e); }
-}
-
-async function setupWallet(addr) {
-    userAddress = addr;
-    provider = new ethers.providers.Web3Provider(window.ethereum);
-    signer = provider.getSigner();
-    
-    const short = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
-    document.getElementById("dot").classList.replace("bg-red-500", "bg-green-500");
-    document.getElementById("dot").classList.remove("animate-pulse");
-    document.getElementById("walletLabel").innerText = short.toUpperCase();
-    
-    localStorage.setItem("isWalletConnected", "true");
-    fetchBalance();
-}
-
-// --- SEND FEATURE ---
-function openSend() {
-    if(!userAddress) return connectWallet();
-    document.getElementById("sendModal").classList.remove("hidden");
-    document.getElementById("sendAmt").value = "";
-    document.getElementById("inrCalcDisplay").innerText = "≈ (₹0.00)";
-}
-
-async function processSend() {
-    const to = document.getElementById("sendTo").value;
-    const amt = document.getElementById("sendAmt").value;
-    const btn = document.getElementById("finalSendBtn");
-
-    if(!ethers.utils.isAddress(to)) return alert("Invalid Recipient Address!");
-    if(!amt || amt <= 0) return alert("Enter a valid amount!");
-
-    try {
-        btn.innerText = "CHECKING GAS..."; btn.disabled = true;
-
-        const gasBalance = await provider.getBalance(userAddress);
-        if (gasBalance.isZero()) {
-            btn.innerText = "NO GAS (ARC)";
-            btn.disabled = false;
-            return alert("You need ARC tokens for gas fees. Please claim from Faucet.");
+        .app-container { max-width: 480px; margin: 0 auto; padding: 20px; }
+        .glass { 
+            background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(15px); 
+            border: 1px solid rgba(255,255,255,0.3); border-radius: 28px; 
         }
-
-        const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
-        
-        btn.innerText = "WAITING FOR WALLET...";
-
-        // Added manual gasLimit to stop "Claim via Faucet" errors on OKX
-        const tx = await contract.transfer(to, ethers.utils.parseUnits(amt, 6), {
-            gasLimit: 80000 
-        });
-        
-        btn.innerText = "CONFIRMING...";
-        await tx.wait();
-        
-        alert("Transaction Successful!");
-        location.reload();
-    } catch (e) {
-        console.error(e);
-        alert("Transaction Failed!");
-        btn.innerText = "CONFIRM PAYMENT"; btn.disabled = false;
-    }
-}
-
-// --- RECEIVE FEATURE ---
-function openReceive() {
-    if(!userAddress) return connectWallet();
-    document.getElementById("receiveModal").classList.remove("hidden");
-    const qrDiv = document.getElementById("qrcode");
-    qrDiv.innerHTML = "";
-    document.getElementById("myAddr").innerText = userAddress;
-    new QRCode(qrDiv, { text: userAddress, width: 200, height: 200, colorDark: "#121271" });
-}
-
-// --- SCAN & PAY FEATURE ---
-async function openScan() {
-    if(!userAddress) return connectWallet();
-    document.getElementById("scanModal").classList.remove("hidden");
-    codeReader = new ZXing.BrowserQRCodeReader();
-    const videoElem = document.getElementById("scanVideo");
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        videoElem.srcObject = stream;
-        videoElem.play();
-        const result = await codeReader.decodeFromVideoElement(videoElem);
-        if(ethers.utils.isAddress(result.text)) {
-            closeModal('scanModal');
-            document.getElementById("sendModal").classList.remove("hidden");
-            document.getElementById("sendTo").value = result.text;
+        .dropdown-menu { 
+            display: none; position: absolute; right: 0; top: 45px; 
+            background: white; min-width: 160px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
+            border-radius: 12px; z-index: 1000; overflow: hidden; 
         }
-    } catch (e) { closeModal('scanModal'); }
-}
-
-// --- HISTORY FEATURE ---
-async function openHistory() {
-    if(!userAddress) return connectWallet();
-    document.getElementById("historyModal").classList.remove("hidden");
-    const list = document.getElementById("txList");
-    list.innerHTML = `<p class="text-[10px] text-center opacity-20 italic">Loading Blockchain Logs...</p>`;
-    
-    try {
-        const contract = new ethers.Contract(USDC_ADDR, ["event Transfer(address indexed from, address indexed to, uint256 value)"], provider);
-        const filter = contract.filters.Transfer(userAddress, null);
-        const logs = await contract.queryFilter(filter, -1000, "latest");
-        
-        if(logs.length === 0) {
-            list.innerHTML = `<p class="text-center text-xs opacity-20 mt-10">No transactions</p>`;
-            return;
-        }
-
-        list.innerHTML = logs.slice(-15).reverse().map(l => `
-            <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 mb-2">
-                <div class="flex justify-between items-center">
-                    <p class="text-[9px] font-black ${l.args.from.toLowerCase() === userAddress.toLowerCase() ? 'text-red-500' : 'text-green-500'}">
-                        ${l.args.from.toLowerCase() === userAddress.toLowerCase() ? 'SENT' : 'RECEIVED'}
-                    </p>
-                    <p class="text-xs font-black italic">₹${(ethers.utils.formatUnits(l.args.value, 6) * INR_RATE).toFixed(2)}</p>
+        .show { display: block !important; }
+        .hidden { display: none !important; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="flex justify-between items-center mb-8">
+            <div class="flex items-center gap-3 bg-white p-2 px-4 rounded-full shadow-md">
+                <div class="flex items-center gap-1 font-black italic text-lg uppercase tracking-tighter">
+                    <span style="color: #FF9933;">Arc</span> 
+                    <span style="color: #121271;">Indi</span>
+                    <span style="color: #138808;">Pay</span>
                 </div>
-                <p class="text-[8px] font-mono opacity-40 mt-1 truncate">
-                    ${l.args.from.toLowerCase() === userAddress.toLowerCase() ? 'To: ' + l.args.to : 'From: ' + l.args.from}
-                </p>
             </div>
-        `).join('');
-    } catch (e) { list.innerHTML = "Error loading history."; }
-}
+            <div class="relative">
+                <button id="walletBtn" onclick="toggleProfile()" class="glass py-2 px-4 flex items-center gap-2 text-[10px] font-black uppercase">
+                    <span id="dot" class="bg-red-500 w-2 h-2 rounded-full animate-pulse"></span>
+                    <span id="walletLabel">Connect Wallet</span>
+                </button>
+                <div id="profileMenu" class="dropdown-menu">
+                    <button onclick="copyAddr()" class="w-full text-left px-4 py-3 border-b hover:bg-gray-50 font-bold text-xs">Copy Address</button>
+                    <button onclick="disconnectWallet()" class="w-full text-left px-4 py-3 text-red-500 hover:bg-red-50 font-bold text-xs">Disconnect</button>
+                </div>
+            </div>
+        </div>
 
-// --- UTILS ---
-function disconnectWallet() {
-    localStorage.removeItem("isWalletConnected");
-    location.reload();
-}
+        <div class="glass p-8 mb-8 text-center shadow-xl">
+            <p class="text-[10px] opacity-60 mb-1 uppercase font-bold tracking-widest">Arc Network (Testnet)</p>
+            <h1 class="text-5xl font-black italic text-black"><span id="usdcBal">0.00</span> <span class="text-2xl opacity-40">USDC</span></h1>
+            <p class="text-xl font-bold mt-1 text-[#121271]">≈ ₹<span id="inrBal">0.00</span></p>
+        </div>
 
-function closeModal(id) {
-    document.getElementById(id).classList.add("hidden");
-    if(id === 'scanModal' && codeReader) {
-        const stream = document.getElementById("scanVideo").srcObject;
-        if(stream) stream.getTracks().forEach(t => t.stop());
-    }
-}
+        <div class="grid grid-cols-2 gap-4 mb-4">
+            <div onclick="openSend()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
+                <i class="fa-solid fa-paper-plane text-3xl mb-3 text-[#FF9933]"></i>
+                <p class="text-xs font-black uppercase italic">Send</p>
+            </div>
+            <div onclick="openReceive()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
+                <i class="fa-solid fa-qrcode text-3xl mb-3 text-[#121271]"></i>
+                <p class="text-xs font-black uppercase italic">Receive</p>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div onclick="openScan()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
+                <i class="fa-solid fa-expand text-3xl mb-3 text-[#138808]"></i>
+                <p class="text-xs font-black uppercase italic">Scan & Pay</p>
+            </div>
+            <div onclick="openHistory()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
+                <i class="fa-solid fa-clock-rotate-left text-3xl mb-3 opacity-40"></i>
+                <p class="text-xs font-black uppercase italic">History</p>
+            </div>
+        </div>
+    </div>
 
-function copyAddr() {
-    navigator.clipboard.writeText(userAddress);
-    alert("Address Copied!");
-}
+    <div id="sendModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-6 z-[500] backdrop-blur-sm">
+        <div class="bg-white rounded-[32px] p-8 w-full max-w-sm shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-[#121271] font-black italic text-xl uppercase">Send Money</h3>
+                <button onclick="closeModal('sendModal')" class="text-2xl text-gray-300 font-bold">&times;</button>
+            </div>
+            <div class="space-y-4">
+                <input type="text" id="sendTo" placeholder="Recipient Address 0x..." class="w-full p-4 bg-gray-50 rounded-2xl border-none text-[11px] font-mono">
+                <div class="relative flex flex-col">
+                    <input type="number" id="sendAmt" oninput="updateInrCalc()" placeholder="Amount USDC" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-2xl font-black italic">
+                    <p id="inrCalcDisplay" class="text-[10px] font-bold text-[#121271] mt-2 ml-2 opacity-80">≈ (₹0.00)</p>
+                </div>
+            </div>
+            <button id="finalSendBtn" onclick="processSend()" class="w-full bg-[#121271] text-white py-5 rounded-2xl font-black text-lg uppercase italic mt-8 shadow-xl">Confirm Payment</button>
+        </div>
+    </div>
 
-async function fetchBalance() {
-    if(!userAddress) return;
-    try {
-        const contract = new ethers.Contract(USDC_ADDR, ["function balanceOf(address) view returns (uint256)"], provider);
-        const bal = await contract.balanceOf(userAddress);
-        const f = ethers.utils.formatUnits(bal, 6);
-        document.getElementById("usdcBal").innerText = parseFloat(f).toFixed(2);
-        document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN');
-    } catch (e) { console.error("Balance Load Failed"); }
-}
+    <div id="successModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-6 z-[600] backdrop-blur-sm">
+        <div class="bg-white rounded-[32px] p-8 w-full max-w-sm text-center shadow-2xl">
+            <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <i class="fa-solid fa-check text-4xl"></i>
+            </div>
+            <h3 class="text-[#121271] font-black italic text-2xl uppercase mb-2">Payment Successful</h3>
+            <p class="text-gray-500 text-sm mb-8">Your transaction has been confirmed on Arc Network.</p>
+            <button onclick="location.reload()" class="w-full bg-[#138808] text-white py-4 rounded-2xl font-black text-lg uppercase italic shadow-lg">Done</button>
+        </div>
+    </div>
 
-window.onclick = (e) => {
-    if (!e.target.matches('#walletBtn, #walletBtn *')) {
-        const menu = document.getElementById("profileMenu");
-        if (menu) menu.classList.remove("show");
-    }
-}
+    <div id="receiveModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-6 z-[500] backdrop-blur-sm">
+        <div class="bg-white rounded-[32px] p-8 w-full max-w-sm text-center shadow-2xl">
+            <h3 class="text-[#121271] font-black italic text-xl uppercase mb-6">Receive Payment</h3>
+            <div id="qrcode" class="flex justify-center mb-6 p-4 bg-gray-50 rounded-3xl mx-auto border border-gray-100"></div>
+            <p id="myAddr" class="text-[9px] font-mono bg-gray-100 p-4 rounded-xl break-all mb-6 text-gray-500"></p>
+            <div class="flex gap-2">
+                <button onclick="copyAddr()" class="flex-1 bg-[#121271] text-white py-4 rounded-2xl font-bold uppercase text-xs">Copy</button>
+                <button onclick="closeModal('receiveModal')" class="flex-1 bg-gray-100 text-gray-400 py-4 rounded-2xl font-bold uppercase text-xs">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <script src="app.js"></script>
+</body>
+</html>
