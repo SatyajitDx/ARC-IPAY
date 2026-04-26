@@ -79,10 +79,12 @@ function openBilling(serviceType) {
                 <option>BSNL</option>
             </select>
             <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Select Plan</label>
-            <select class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold mb-4">
-                <option>Unlimited Pack ₹299</option>
-                <option>Data Booster ₹19</option>
-                <option>Validity Pack ₹155</option>
+            <select id="planSelect" onchange="updateAmountFromPlan(this)" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold mb-4">
+                <option value="0">Choose a Plan</option>
+                <option value="299">Unlimited Pack ₹299</option>
+                <option value="19">Data Booster ₹19</option>
+                <option value="155">Validity Pack ₹155</option>
+                <option value="666">Premium Pack ₹666</option>
             </select>
         `;
     } else {
@@ -270,5 +272,15 @@ async function openHistory() {
     } catch (e) {
         console.error("Blockchain Fetch Error:", e);
         list.innerHTML = `<p class="text-center text-xs text-red-500 font-bold mt-10 uppercase">Blockchain busy. Try again!</p>`;
+    }
+}
+
+function updateAmountFromPlan(selectElement) {
+    const amount = selectElement.value;
+    const amountInput = document.getElementById("sendAmt");
+    
+    if(amount > 0) {
+        amountInput.value = amount; // Amount box mein price bharega
+        updateInrCalc(); // USDC calculation ko refresh karega
     }
 }
