@@ -9,36 +9,51 @@
     <style>
         body { 
             background: linear-gradient(160deg, #FF9933 0%, #FFFFFF 50%, #138808 100%) !important; 
-            min-height: 100vh; font-family: sans-serif; margin: 0; overflow-x: hidden; 
+            min-height: 100vh; 
+            font-family: sans-serif; 
+            margin: 0; 
+            overflow-x: hidden; 
         }
         .app-container { max-width: 480px; margin: 0 auto; padding: 20px; }
         .glass { 
-            background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(15px); 
-            border: 1px solid rgba(255,255,255,0.3); border-radius: 28px; 
+            background: rgba(255, 255, 255, 0.5); 
+            backdrop-filter: blur(15px); 
+            border: 1px solid rgba(255,255,255,0.3); 
+            border-radius: 28px; 
         }
         .dropdown-menu { 
-            display: none; position: absolute; right: 0; top: 45px; 
-            background: white; min-width: 160px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
-            border-radius: 12px; z-index: 1000; overflow: hidden; 
+            display: none; 
+            position: absolute; 
+            right: 0; 
+            top: 45px; 
+            background: white; 
+            min-width: 160px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
+            border-radius: 12px; 
+            z-index: 1000; 
+            overflow: hidden; 
         }
         .show { display: block !important; }
         .hidden { display: none !important; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
 <body>
     <div class="app-container">
         <div class="flex justify-between items-center mb-8">
-            <div class="flex items-center gap-2 bg-white p-2 px-4 rounded-full shadow-md border border-gray-100">
+            <div class="flex items-center gap-3 bg-white p-2 px-4 rounded-full shadow-md border border-gray-100">
                 <div class="flex items-center gap-1 font-black italic text-lg uppercase tracking-tighter">
                     <span style="color: #FF9933;">Arc</span> 
                     <span style="color: #121271;">Indi</span>
                     <span style="color: #138808;">Pay</span>
                 </div>
-                <img src="logo.png" class="w-6 h-6 object-contain" onerror="this.style.display='none'">
+                <div class="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-gray-50">
+                    <img src="logo.png" class="w-full h-full object-contain" alt="logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/6001/6001527.png'">
+                </div>
             </div>
             
             <div class="relative">
-                <button id="walletBtn" onclick="toggleProfile()" class="glass py-2 px-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-tighter shadow-sm">
+                <button id="walletBtn" onclick="toggleProfile()" class="glass py-2 px-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-tighter">
                     <span id="dot" class="bg-red-500 w-2 h-2 rounded-full animate-pulse"></span>
                     <span id="walletLabel">Connect Wallet</span>
                 </button>
@@ -56,21 +71,21 @@
         </div>
 
         <div class="grid grid-cols-2 gap-4 mb-4">
-            <div onclick="openSend()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all shadow-sm hover:shadow-md">
+            <div onclick="openSend()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
                 <i class="fa-solid fa-paper-plane text-3xl mb-3 text-[#FF9933]"></i>
                 <p class="text-xs font-black uppercase italic">Send</p>
             </div>
-            <div onclick="openReceive()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all shadow-sm hover:shadow-md">
+            <div onclick="openReceive()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
                 <i class="fa-solid fa-qrcode text-3xl mb-3 text-[#121271]"></i>
                 <p class="text-xs font-black uppercase italic">Receive</p>
             </div>
         </div>
         <div class="grid grid-cols-2 gap-4 mb-8">
-            <div onclick="openScan()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all shadow-sm hover:shadow-md">
+            <div onclick="openScan()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
                 <i class="fa-solid fa-expand text-3xl mb-3 text-[#138808]"></i>
                 <p class="text-xs font-black uppercase italic">Scan & Pay</p>
             </div>
-            <div onclick="openHistory()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all shadow-sm hover:shadow-md">
+            <div onclick="openHistory()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
                 <i class="fa-solid fa-clock-rotate-left text-3xl mb-3 opacity-40"></i>
                 <p class="text-xs font-black uppercase italic">History</p>
             </div>
@@ -79,10 +94,10 @@
         <div class="glass p-6 mb-6">
             <h3 class="text-[#121271] font-black italic text-sm mb-5 uppercase text-center tracking-widest">Bills & Recharges</h3>
             <div class="grid grid-cols-4 gap-2 text-center">
-                <div class="glass py-4"><i class="fa-solid fa-mobile-screen text-[#FF9933]"></i><p class="text-[7px] font-black mt-1 uppercase">Mobile</p></div>
-                <div class="glass py-4"><i class="fa-solid fa-lightbulb text-[#138808]"></i><p class="text-[7px] font-black mt-1 uppercase">Light</p></div>
-                <div class="glass py-4"><i class="fa-solid fa-tv text-[#FF9933]"></i><p class="text-[7px] font-black mt-1 uppercase">DTH</p></div>
-                <div class="glass py-4"><i class="fa-solid fa-wifi text-[#138808]"></i><p class="text-[7px] font-black mt-1 uppercase">Wifi</p></div>
+                <div class="glass py-4"><i class="fa-solid fa-mobile-screen text-[#FF9933]"></i><p class="text-[7px] font-black mt-1">MOBILE</p></div>
+                <div class="glass py-4"><i class="fa-solid fa-lightbulb text-[#138808]"></i><p class="text-[7px] font-black mt-1">ELECTRIC</p></div>
+                <div class="glass py-4"><i class="fa-solid fa-tv text-[#FF9933]"></i><p class="text-[7px] font-black mt-1">DTH</p></div>
+                <div class="glass py-4"><i class="fa-solid fa-wifi text-[#138808]"></i><p class="text-[7px] font-black mt-1">WIFI</p></div>
             </div>
         </div>
     </div>
@@ -91,27 +106,59 @@
         <div class="bg-white rounded-[32px] p-8 w-full max-w-sm shadow-2xl">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-[#121271] font-black italic text-xl uppercase">Send Money</h3>
-                <button onclick="closeModal('sendModal')" class="text-2xl text-gray-300 hover:text-red-500 font-bold">&times;</button>
+                <button onclick="closeModal('sendModal')" class="text-2xl text-gray-300 hover:text-red-500 transition-all font-bold">&times;</button>
             </div>
             <div class="space-y-4">
-                <input type="text" id="sendTo" placeholder="Recipient Address 0x..." class="w-full p-4 bg-gray-50 rounded-2xl border-none text-[11px] font-mono focus:ring-2 focus:ring-[#FF9933]">
-                <div class="relative flex flex-col">
-                    <input type="number" id="sendAmt" oninput="updateInrCalc()" placeholder="Amount USDC" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-2xl font-black italic focus:ring-2 focus:ring-[#138808]">
-                    <p id="inrCalcDisplay" class="text-[10px] font-bold text-[#121271] mt-2 ml-2 opacity-80">≈ (₹0.00)</p>
+                <div>
+                    <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Recipient Address</label>
+                    <input type="text" id="sendTo" placeholder="0x..." class="w-full p-4 bg-gray-50 rounded-2xl border-none text-[11px] font-mono focus:ring-2 focus:ring-[#FF9933]">
                 </div>
+                <div>
+                    <label class="text-[9px] font-black uppercase text-[#138808] ml-2 mb-1 block">Amount USDC</label>
+                    <div class="relative flex flex-col">
+                        <input type="number" id="sendAmt" oninput="updateInrCalc()" placeholder="0.00" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-2xl font-black italic focus:ring-2 focus:ring-[#138808]">
+                        <p id="inrCalcDisplay" class="text-[10px] font-bold text-[#121271] mt-2 ml-2 opacity-80">≈ (₹0.00)</p>
+                    </div>
+                </div>
+                <input type="text" id="sendPurpose" placeholder="Add a note (Purpose)" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold">
             </div>
-            <button id="finalSendBtn" onclick="processSend()" class="w-full bg-[#121271] text-white py-5 rounded-2xl font-black text-lg uppercase italic tracking-widest mt-8 shadow-xl active:scale-95 transition-all">Confirm Payment</button>
+            <button id="finalSendBtn" onclick="processSend()" class="w-full bg-[#121271] text-white py-5 rounded-2xl font-black text-lg uppercase italic tracking-widest mt-8 shadow-xl shadow-blue-900/20 active:scale-95 transition-all">Confirm Payment</button>
         </div>
     </div>
 
-    <div id="successModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-6 z-[600] backdrop-blur-sm">
+    <div id="receiveModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-6 z-[500] backdrop-blur-sm">
         <div class="bg-white rounded-[32px] p-8 w-full max-w-sm text-center shadow-2xl">
-            <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                <i class="fa-solid fa-check text-4xl"></i>
+            <h3 class="text-[#121271] font-black italic text-xl uppercase mb-6">Receive Payment</h3>
+            <div id="qrcode" class="flex justify-center mb-6 p-4 bg-gray-50 rounded-3xl inline-block mx-auto border border-gray-100"></div>
+            <p id="myAddr" class="text-[9px] font-mono bg-gray-100 p-4 rounded-xl break-all mb-6 text-gray-500 border border-gray-200"></p>
+            <div class="flex gap-2">
+                <button onclick="copyAddr()" class="flex-1 bg-[#121271] text-white py-4 rounded-2xl font-bold uppercase text-xs">Copy Address</button>
+                <button onclick="closeModal('receiveModal')" class="flex-1 bg-gray-100 text-gray-400 py-4 rounded-2xl font-bold uppercase text-xs">Close</button>
             </div>
-            <h3 class="text-[#121271] font-black italic text-2xl uppercase mb-2">Payment Successful</h3>
-            <p class="text-gray-500 text-sm mb-8">Confirmed on Arc Network.</p>
-            <button onclick="location.reload()" class="w-full bg-[#138808] text-white py-4 rounded-2xl font-black text-lg uppercase italic shadow-lg">Done</button>
+        </div>
+    </div>
+
+    <div id="scanModal" class="fixed inset-0 bg-black hidden flex items-center justify-center z-[600]">
+        <video id="scanVideo" class="w-full h-full object-cover"></video>
+        <div class="absolute inset-0 border-[40px] border-black/60 flex items-center justify-center pointer-events-none">
+            <div class="w-64 h-64 border-2 border-white/50 rounded-3xl relative">
+                <div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#FF9933] rounded-tl-lg"></div>
+                <div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-[#138808] rounded-br-lg"></div>
+            </div>
+        </div>
+        <button onclick="closeModal('scanModal')" class="absolute top-10 right-10 bg-white/20 p-4 rounded-full text-white text-2xl backdrop-blur-md">&times;</button>
+    </div>
+
+    <div id="historyModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-6 z-[500] backdrop-blur-sm">
+        <div class="bg-white rounded-[32px] p-8 w-full max-w-sm shadow-2xl h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-[#121271] font-black italic text-xl uppercase tracking-tighter">Transaction Logs</h3>
+                <button onclick="closeModal('historyModal')" class="text-gray-300 text-2xl">&times;</button>
+            </div>
+            <div id="txList" class="flex-1 overflow-y-auto space-y-3 pr-2">
+                <p class="text-[10px] text-center opacity-20 italic">Fetching from Arc Blockchain...</p>
+            </div>
+            <button onclick="closeModal('historyModal')" class="w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-bold uppercase text-xs mt-4">Close History</button>
         </div>
     </div>
 
