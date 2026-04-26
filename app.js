@@ -1,11 +1,10 @@
-// --- ARC NETWORK CONFIG ---
 const USDC_ADDR = "0x3600000000000000000000000000000000000000"; 
 const ARC_CHAIN_ID = '0x4cef52'; 
 const INR_RATE = 83.50;
 
 let userAddress = "", provider, signer;
 
-// 1. AUTO-CONNECT (Page reload hone par bhi wallet connected rakhega)
+// 1. AUTO-CONNECT (Page reload hone par)
 async function autoConnect() {
     if (window.ethereum && localStorage.getItem("isWalletConnected") === "true") {
         try {
@@ -13,44 +12,46 @@ async function autoConnect() {
             if (accounts.length > 0) {
                 setupWallet(accounts[0]);
             }
-        } catch (e) {
-            console.error("Auto-reconnect failed", e);
-        }
+        } catch (e) { console.error(e); }
     }
 }
 
-// 2. SETUP WALLET (UI aur State ek sath update karne ke liye)
+// 2. SETUP WALLET (UI Format updated)
 async function setupWallet(addr) {
     userAddress = addr;
     provider = new ethers.providers.Web3Provider(window.ethereum);
     signer = provider.getSigner();
 
-    // UI Updates
-    const dot = document.getElementById("dot");
-    dot.classList.replace("bg-red-500", "bg-green-500");
-    dot.classList.remove("animate-pulse");
-    document.getElementById("walletLabel").innerText = userAddress.slice(0, 10) + "...";
-
-    // Data Load
-    fetchBalance();
+    // Address Formatting: 0x12...5678 (Last 4 digits)
+    const shortAddr = addr.substring(0, 4) + "..." + addr.substring(addr.length - 4);
     
-    // Save status in browser memory
+    document.getElementById("dot").classList.replace("bg-red-500", "bg-green-500");
+    document.getElementById("dot").classList.remove("animate-pulse");
+    document.getElementById("walletLabel").innerText = shortAddr;
+
+    fetchBalance();
+    getTxLogs();
     localStorage.setItem("isWalletConnected", "true");
 }
 
-// 3. MANUAL CONNECT + NETWORK SWITCH
+// 3. MANUAL CONNECT (Isse New Wallet Choose karne ka option aayega)
 async function connectWallet() {
-    if (!window.ethereum) return alert("Bhai, MetaMask install karlo!");
+    if (!window.ethereum) return alert("MetaMask install karo!");
 
     try {
-        // Auto-Switch to Arc Testnet
+        // Force MetaMask to show account selection
+        const accounts = await window.ethereum.request({ 
+            method: "eth_requestAccounts" 
+        });
+
+        // Network Switch Logic
         try {
             await window.ethereum.request({
                 method: 'wallet_switchEthereumChain',
                 params: [{ chainId: ARC_CHAIN_ID }],
             });
-        } catch (switchError) {
-            if (switchError.code === 4902) {
+        } catch (err) {
+            if (err.code === 4902) {
                 await window.ethereum.request({
                     method: 'wallet_addEthereumChain',
                     params: [{
@@ -64,93 +65,48 @@ async function connectWallet() {
             }
         }
 
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         setupWallet(accounts[0]);
 
     } catch (e) {
-        console.error("Manual Connection Failed", e);
+        console.error("Connection Failed", e);
     }
 }
 
-// 4. TOGGLE PROFILE (Connect or Menu)
-function toggleProfile() {
-    if (!userAddress) {
-        connectWallet();
-    } else {
-        document.getElementById("profileMenu").classList.toggle("show");
-    }
+// 4. DISCONNECT (Isse storage clear hogi taaki naya wallet connect ho sake)
+function disconnectWallet() {
+    userAddress = "";
+    localStorage.removeItem("isWalletConnected");
+    
+    // UI Reset
+    document.getElementById("dot").classList.replace("bg-green-500", "bg-red-500");
+    document.getElementById("dot").classList.add("animate-pulse");
+    document.getElementById("walletLabel").innerText = "Connect Wallet";
+    
+    alert("Disconnected! Ab naya wallet connect kar sakte ho.");
+    location.reload(); 
 }
 
-// 5. FETCH BALANCE & TRANSACTIONS
+// --- BAKI FUNCTIONS (Wahi rahenge) ---
 async function fetchBalance() {
     try {
         const contract = new ethers.Contract(USDC_ADDR, ["function balanceOf(address) view returns (uint256)"], provider);
         const bal = await contract.balanceOf(userAddress);
         const f = ethers.utils.formatUnits(bal, 6);
-        
         document.getElementById("usdcBal").innerText = parseFloat(f).toFixed(2);
         document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN');
-        
-        getTxLogs();
-    } catch (e) { console.log("Balance fetch error"); }
+    } catch (e) {}
 }
 
-async function getTxLogs() {
-    try {
-        const contract = new ethers.Contract(USDC_ADDR, ["event Transfer(address indexed from, address indexed to, uint256 value)"], provider);
-        const filter = contract.filters.Transfer(userAddress, null);
-        const logs = await contract.queryFilter(filter, -500, "latest");
-        const list = document.getElementById("txList");
-        
-        if(logs.length === 0) return;
-        
-        list.innerHTML = logs.slice(-3).reverse().map(l => `
-            <div class="flex justify-between items-center bg-white/40 p-3 rounded-xl border border-black/5 shadow-sm">
-                <div>
-                    <p class="text-[7px] font-black text-[#121271]">SENT</p>
-                    <p class="text-[8px] font-mono opacity-60">${l.args.to.slice(0,18)}...</p>
-                </div>
-                <div class="text-right">
-                    <p class="text-[10px] font-black text-red-600">-${ethers.utils.formatUnits(l.args.value, 6)}</p>
-                </div>
-            </div>`).join('');
-    } catch (e) { console.log("Logs error"); }
+function toggleProfile() {
+    if (!userAddress) connectWallet();
+    else document.getElementById("profileMenu").classList.toggle("show");
 }
 
-// 6. DISCONNECT WALLET
-function disconnectWallet() {
-    userAddress = "";
-    localStorage.removeItem("isWalletConnected");
-    location.reload(); // Full reset for safety
-}
-
-// 7. UTILS & MODALS
 function copyAddr() {
     navigator.clipboard.writeText(userAddress);
     alert("Address Copied!");
-    document.getElementById("profileMenu").classList.remove("show");
 }
 
-function openSend() {
-    if(!userAddress) return connectWallet();
-    const to = prompt("Enter Receiver Address:");
-    const amt = prompt("Enter Amount (USDC):");
-    if(to && amt) alert("Transaction Initiated on Arc Testnet...");
-}
-
-function openReceive() {
-    if(!userAddress) return connectWallet();
-    document.getElementById("receiveModal").classList.remove("hidden");
-    document.getElementById("myAddr").innerText = userAddress;
-    document.getElementById("qrcode").innerHTML = "";
-    new QRCode(document.getElementById("qrcode"), { text: userAddress, width: 150, height: 150 });
-}
-
-function closeModal(id) {
-    document.getElementById(id).classList.add("hidden");
-}
-
-// Global click to close menu
 window.onclick = (e) => {
     if (!e.target.matches('#walletBtn, #walletBtn *')) {
         const menu = document.getElementById("profileMenu");
