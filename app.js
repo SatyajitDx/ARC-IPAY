@@ -79,7 +79,7 @@ async function setupWallet(addr) {
     fetchBalance();
 }
 
-// --- SEND FEATURE (INSTANT & DYNAMIC GAS) ---
+// --- SEND FEATURE (SAFE & FAST) ---
 function openSend() {
     if(!userAddress) return connectWallet();
     document.getElementById("sendModal").classList.remove("hidden");
@@ -96,24 +96,30 @@ async function processSend() {
     if(!amt || amt <= 0) return alert("Enter valid amount!");
 
     try {
-        btn.innerText = "FETCHING GAS..."; btn.disabled = true;
+        btn.innerText = "PREPARING..."; btn.disabled = true;
 
-        // Fetching real-time network gas (e.g. 20.6 Gwei)
-        const currentGasPrice = await provider.getGasPrice();
+        // Fetch dynamic gas from network
+        const gasPrice = await provider.getGasPrice();
         
+        const nativeBalance = await provider.getBalance(userAddress);
+        if (nativeBalance.isZero()) {
+            btn.innerText = "NO GAS (USDC)";
+            btn.disabled = false;
+            return alert("You need USDC for gas fees on Arc Network.");
+        }
+
         const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
         
-        btn.innerText = "WAITING FOR WALLET...";
+        btn.innerText = "CONFIRMING...";
 
+        // Transaction with Safe Gas Limit and Dynamic Price
         const tx = await contract.transfer(to, ethers.utils.parseUnits(amt, 6), {
-            gasLimit: 120000,
-            gasPrice: currentGasPrice // Uses exact network gas
+            gasLimit: 150000, 
+            gasPrice: gasPrice 
         });
         
-        btn.innerText = "CONFIRMING...";
-        
-        // Instant response: Wait for only 1 confirmation
-        await tx.wait(1);
+        btn.innerText = "PENDING...";
+        await tx.wait(1); // Wait for confirmation
 
         // --- SHOW RECEIPT CARD ---
         document.getElementById("sendModal").classList.add("hidden");
@@ -128,8 +134,9 @@ async function processSend() {
 
         btn.innerText = "CONFIRM PAYMENT"; btn.disabled = false;
     } catch (e) {
-        console.error(e);
-        alert("Transaction Failed!");
+        console.error("TX Error:", e);
+        const errorReason = e.data?.message || e.message || "Unknown Error";
+        alert("Transaction Failed: " + errorReason);
         btn.innerText = "CONFIRM PAYMENT"; btn.disabled = false;
     }
 }
