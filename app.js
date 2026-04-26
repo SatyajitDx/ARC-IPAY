@@ -147,17 +147,17 @@ async function processSend() {
     if(!target || !inputVal) return alert("Details bharo bhai!");
 
     try {
-        btn.innerText = "PROCESSING..."; btn.disabled = true;
+        btn.innerText = "SENDING..."; btn.disabled = true;
         let finalDest = currentService === "DIRECT" ? target : MERCHANT_ADDRESS;
         let usdcAmount = currentService === "DIRECT" ? inputVal : (inputVal / INR_RATE).toFixed(6);
 
-        // FIX: Proper ABI definition to remove "Unknown" in MetaMask
+        // Unknown hatane ke liye proper ABI
         const contract = new ethers.Contract(USDC_ADDR, [
             "function transfer(address to, uint256 value) returns (bool)"
         ], signer);
 
         const baseFee = ethers.utils.parseUnits("20", "gwei"); 
-        const priorityFee = ethers.utils.parseUnits("3", "gwei"); 
+        const priorityFee = ethers.utils.parseUnits("5", "gwei"); // Speed tip
 
         const tx = await contract.transfer(
             finalDest, 
@@ -165,25 +165,30 @@ async function processSend() {
             {
                 maxFeePerGas: baseFee.add(priorityFee),
                 maxPriorityFeePerGas: priorityFee,
-                gasLimit: 150000 
+                gasLimit: 120000 
             }
         );
 
-        await tx.wait(1);
+        // ⚡ INSTANT UI: Wait ka intezar nahi, sidha Receipt dikhao
         document.getElementById("sendModal").classList.add("hidden");
         document.getElementById("receiptModal").classList.remove("hidden");
         document.getElementById("recAmt").innerText = currentService === "DIRECT" ? `${usdcAmount} USDC` : `₹${inputVal}`;
-        document.getElementById("recTo").innerText = `Ref: ${target}`;
+        document.getElementById("recTo").innerText = `Ref: ${target.substring(0,6)}...${target.slice(-4)}`;
+
+        // Background mein confirmation chalti rahegi
+        tx.wait(1).then(() => {
+            console.log("Confirmed!");
+            fetchBalance();
+        });
+
     } catch (e) {
         console.error(e);
         document.getElementById("sendModal").classList.add("hidden");
         document.getElementById("failModal").classList.remove("hidden");
         document.getElementById("failReason").innerText = e.message.includes("txpool") 
-            ? "Network Busy. Try again in 1 min!" 
-            : "Transaction Cancelled/Failed";
+            ? "Network Busy. Try again!" : "Transaction Failed or Cancelled";
     } finally {
         btn.innerText = "Confirm Payment"; btn.disabled = false;
-        fetchBalance();
     }
 }
 
@@ -238,7 +243,7 @@ async function openHistory() {
     const modal = document.getElementById("historyModal");
     const list = document.getElementById("txList");
     modal.classList.remove("hidden");
-    list.innerHTML = `<div class="flex flex-col items-center justify-center py-10 opacity-30"><i class="fa-solid fa-circle-notch animate-spin text-2xl mb-2"></i><p class="text-[10px] font-black uppercase tracking-widest text-[#121271]">Scanning Chain...</p></div>`;
+    list.innerHTML = `<div class="flex flex-col items-center justify-center py-10 opacity-30"><i class="fa-solid fa-circle-notch animate-spin text-2xl mb-2 text-[#121271]"></i><p class="text-[10px] font-black uppercase tracking-widest">Scanning...</p></div>`;
     try {
         const contract = new ethers.Contract(USDC_ADDR, ["event Transfer(address indexed from, address indexed to, uint256 value)"], provider);
         const filter = contract.filters.Transfer(userAddress, null);
@@ -253,7 +258,7 @@ async function openHistory() {
                 <p class="text-[7px] font-bold opacity-20 uppercase tracking-widest text-[#121271]">Verified Log</p>
                 <a href="https://testnet.arcscan.app/tx/${l.transactionHash}" target="_blank" class="text-[7px] font-black text-blue-600 underline uppercase italic">View on Scan</a></div></div>`;
         }).join('');
-    } catch (e) { list.innerHTML = `<p class="text-center text-red-500 font-bold uppercase text-xs">Blockchain Busy</p>`; }
+    } catch (e) { list.innerHTML = `<p class="text-center text-red-500 font-bold uppercase text-xs">Node Busy</p>`; }
 }
 
 function updateAmountFromPlan(selectElement) {
