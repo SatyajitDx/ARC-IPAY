@@ -21,14 +21,12 @@ async function toggleProfile() {
 async function connectWallet() {
     if (!window.ethereum) return alert("Please install MetaMask or OKX Wallet!");
     try {
-        // Request specific account permissions to allow switching
         await window.ethereum.request({ 
             method: 'wallet_requestPermissions', 
             params: [{ eth_accounts: {} }] 
         });
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         
-        // Auto-Switch to Arc Network
         try {
             await window.ethereum.request({ 
                 method: 'wallet_switchEthereumChain', 
@@ -57,7 +55,6 @@ async function setupWallet(addr) {
     provider = new ethers.providers.Web3Provider(window.ethereum);
     signer = provider.getSigner();
     
-    // UI Formatting: 0x12...ABCD
     const short = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
     document.getElementById("dot").classList.replace("bg-red-500", "bg-green-500");
     document.getElementById("dot").classList.remove("animate-pulse");
@@ -67,7 +64,7 @@ async function setupWallet(addr) {
     fetchBalance();
 }
 
-// --- SEND FEATURE (WITH GAS CHECK) ---
+// --- SEND FEATURE (WITH OKX GAS FIX) ---
 function openSend() {
     if(!userAddress) return connectWallet();
     document.getElementById("sendModal").classList.remove("hidden");
@@ -86,19 +83,22 @@ async function processSend() {
     try {
         btn.innerText = "CHECKING GAS..."; btn.disabled = true;
 
-        // CRITICAL: Check if user has ARC for Gas Fees
+        // Check Native ARC balance for fees
         const gasBalance = await provider.getBalance(userAddress);
         if (gasBalance.isZero()) {
             btn.innerText = "NO GAS (ARC)";
             btn.disabled = false;
-            return alert("You need ARC tokens to pay for network fees. Please use the Arc Faucet.");
+            return alert("You need ARC tokens for gas fees. Please claim from Arc Faucet.");
         }
 
         const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
         
         btn.innerText = "WAITING FOR WALLET...";
-        // Sending Transaction (USDC uses 6 decimals)
-        const tx = await contract.transfer(to, ethers.utils.parseUnits(amt, 6));
+
+        // OKX FIX: Adding manual gasLimit and gasPrice to avoid 'Unknown Transaction' errors
+        const tx = await contract.transfer(to, ethers.utils.parseUnits(amt, 6), {
+            gasLimit: 80000 
+        });
         
         btn.innerText = "CONFIRMING...";
         await tx.wait();
@@ -107,7 +107,7 @@ async function processSend() {
         location.reload();
     } catch (e) {
         console.error(e);
-        alert("Transaction Failed! Ensure you have enough USDC and ARC.");
+        alert("Transaction Failed! Make sure you have ARC for gas.");
         btn.innerText = "CONFIRM PAYMENT"; btn.disabled = false;
     }
 }
@@ -119,7 +119,6 @@ function openReceive() {
     const qrDiv = document.getElementById("qrcode");
     qrDiv.innerHTML = "";
     document.getElementById("myAddr").innerText = userAddress;
-    // Professional QR Generation
     new QRCode(qrDiv, { text: userAddress, width: 200, height: 200, colorDark: "#121271" });
 }
 
@@ -141,26 +140,24 @@ async function openScan() {
             document.getElementById("sendTo").value = result.text;
         }
     } catch (e) { 
-        console.error("Camera Error", e);
         closeModal('scanModal'); 
     }
 }
 
-// --- HISTORY FEATURE (FETCH 1000 BLOCKS) ---
+// --- HISTORY FEATURE ---
 async function openHistory() {
     if(!userAddress) return connectWallet();
     document.getElementById("historyModal").classList.remove("hidden");
     const list = document.getElementById("txList");
-    list.innerHTML = `<p class="text-[10px] text-center opacity-20 italic">Scanning Blockchain...</p>`;
+    list.innerHTML = `<p class="text-[10px] text-center opacity-20 italic">Loading Blockchain Logs...</p>`;
     
     try {
         const contract = new ethers.Contract(USDC_ADDR, ["event Transfer(address indexed from, address indexed to, uint256 value)"], provider);
         const filter = contract.filters.Transfer(userAddress, null);
-        // Range adjusted for Testnet logs
         const logs = await contract.queryFilter(filter, -1000, "latest");
         
         if(logs.length === 0) {
-            list.innerHTML = `<p class="text-center text-xs opacity-20 mt-10">No recent transactions</p>`;
+            list.innerHTML = `<p class="text-center text-xs opacity-20 mt-10">No transactions</p>`;
             return;
         }
 
@@ -177,10 +174,10 @@ async function openHistory() {
                 </p>
             </div>
         `).join('');
-    } catch (e) { list.innerHTML = "History load error."; }
+    } catch (e) { list.innerHTML = "Error loading history."; }
 }
 
-// --- SYSTEM UTILS ---
+// --- UTILS ---
 function disconnectWallet() {
     localStorage.removeItem("isWalletConnected");
     location.reload();
@@ -206,7 +203,6 @@ function copyAddr() {
 async function fetchBalance() {
     if(!userAddress) return;
     try {
-        // USDC Balance
         const contract = new ethers.Contract(USDC_ADDR, ["function balanceOf(address) view returns (uint256)"], provider);
         const bal = await contract.balanceOf(userAddress);
         const f = ethers.utils.formatUnits(bal, 6);
