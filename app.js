@@ -87,14 +87,27 @@ function openBilling(serviceType) {
                 <option value="666">Premium Pack ₹666</option>
             </select>
         `;
-    } else {
-        label.innerText = "Consumer ID / Account No";
+   } else {
+        // Label change: Consumer ID ya Account No dikhane ke liye
+        label.innerText = currentService === 'ELECTRIC' ? "Consumer Number" : "Consumer ID / Account No";
         input.placeholder = `Enter your ${currentService} ID`;
         input.classList.remove("font-mono");
         
+        // Biller Providers ke liye dropdown logic
+        let billerOptions = "";
+        if(currentService === 'ELECTRIC') {
+            billerOptions = `<option>Adani Electricity</option><option>Tata Power</option><option>MSEDCL</option><option>UPPCL</option>`;
+        } else if(currentService === 'DTH') {
+            billerOptions = `<option>Tata Play</option><option>Airtel Digital TV</option><option>Dish TV</option>`;
+        } else if(currentService === 'WIFI') {
+            billerOptions = `<option>Airtel Xstream</option><option>Jio Fiber</option><option>ACT Fibernet</option>`;
+        }
+
         billingFields.innerHTML = `
-            <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Biller Name</label>
-            <input type="text" placeholder="e.g. Tata Power / Excitel" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold mb-4">
+            <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Select Provider</label>
+            <select class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold mb-4">
+                ${billerOptions}
+            </select>
         `;
     }
     document.getElementById("sendAmt").value = "";
