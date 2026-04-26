@@ -206,3 +206,69 @@ function openReceive() {
         colorLight : "#ffffff"
     });
 }
+
+// --- LIVE BLOCKCHAIN HISTORY FETCH ---
+async function openHistory() {
+    if (!userAddress) {
+        alert("Pehle Wallet Connect karo bhai!");
+        return connectWallet();
+    }
+
+    const modal = document.getElementById("historyModal");
+    const list = document.getElementById("txList");
+    
+    // Modal dikhao aur Loading text daalo
+    modal.classList.remove("hidden");
+    list.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-10 opacity-30">
+            <i class="fa-solid fa-circle-notch animate-spin text-2xl mb-2"></i>
+            <p class="text-[10px] font-bold uppercase tracking-widest">Fetching from Arc Blockchain...</p>
+        </div>
+    `;
+
+    try {
+        // Blockchain Contract Setup (USDC Transfer Event)
+        const contract = new ethers.Contract(USDC_ADDR, [
+            "event Transfer(address indexed from, address indexed to, uint256 value)"
+        ], provider);
+
+        // Filter: Sirf wo transactions jisme 'from' user ka address ho
+        const filter = contract.filters.Transfer(userAddress, null);
+        
+        // Pichle 5000 blocks scan karo (Live fetch)
+        const logs = await contract.queryFilter(filter, -5000, "latest");
+
+        if (logs.length === 0) {
+            list.innerHTML = `<p class="text-center text-xs opacity-20 mt-10 font-bold italic">No Transactions Found on Blockchain.</p>`;
+            return;
+        }
+
+        // Logs ko reverse karo taaki latest upar aaye
+        list.innerHTML = logs.reverse().slice(0, 20).map(l => {
+            const amountUSDC = ethers.utils.formatUnits(l.args.value, 6);
+            const amountINR = (amountUSDC * INR_RATE).toFixed(2);
+            
+            return `
+            <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 mb-3 active:scale-95 transition-all">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-[9px] font-black text-red-500 tracking-tighter italic">SENT SUCCESS</p>
+                        <p class="text-[8px] font-mono opacity-40 mt-1 truncate w-40">To: ${l.args.to}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-black italic text-[#121271]">₹${amountINR}</p>
+                        <p class="text-[8px] font-bold opacity-30">${amountUSDC} USDC</p>
+                    </div>
+                </div>
+                <div class="mt-2 pt-2 border-t border-dashed border-gray-200 flex justify-between items-center">
+                    <p class="text-[7px] font-bold opacity-20 tracking-widest">ARC SCAN LOG</p>
+                    <a href="https://testnet.arcscan.app/tx/${l.transactionHash}" target="_blank" class="text-[7px] font-black text-blue-500 underline">VIEW TX</a>
+                </div>
+            </div>`;
+        }).join('');
+
+    } catch (e) {
+        console.error("Blockchain Fetch Error:", e);
+        list.innerHTML = `<p class="text-center text-xs text-red-500 font-bold mt-10 uppercase">Blockchain busy. Try again!</p>`;
+    }
+}
