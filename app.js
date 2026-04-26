@@ -17,40 +17,35 @@ window.addEventListener('load', async () => {
 function updateInrCalc() {
     const usdcVal = document.getElementById("sendAmt").value;
     const display = document.getElementById("inrCalcDisplay");
-    
     if (usdcVal > 0) {
-        const inrVal = (usdcVal * INR_RATE).toLocaleString('en-IN', { 
-            maximumFractionDigits: 2, 
-            minimumFractionDigits: 2 
-        });
+        const inrVal = (usdcVal * INR_RATE).toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
         display.innerText = `≈ (₹${inrVal})`;
     } else {
         display.innerText = `≈ (₹0.00)`;
     }
 }
 
-// --- WALLET CORE LOGIC ---
+// --- WALLET CORE LOGIC (MetaMask Optimized) ---
 async function toggleProfile() {
     if (!userAddress) connectWallet();
     else document.getElementById("profileMenu").classList.toggle("show");
 }
 
 async function connectWallet() {
-    if (!window.ethereum) return alert("Please install MetaMask or OKX Wallet!");
+    if (!window.ethereum) return alert("Bhai, MetaMask install karo!");
     try {
-        await window.ethereum.request({ 
-            method: 'wallet_requestPermissions', 
-            params: [{ eth_accounts: {} }] 
-        });
+        // Request MetaMask accounts
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         
         try {
+            // Switch to Arc Network
             await window.ethereum.request({ 
                 method: 'wallet_switchEthereumChain', 
                 params: [{ chainId: ARC_CHAIN_ID }] 
             });
         } catch (e) {
             if (e.code === 4902) {
+                // Add Arc Network if not present in MetaMask
                 await window.ethereum.request({
                     method: 'wallet_addEthereumChain',
                     params: [{
@@ -64,7 +59,7 @@ async function connectWallet() {
             }
         }
         setupWallet(accounts[0]);
-    } catch (e) { console.error("Connection Cancelled", e); }
+    } catch (e) { console.error("User cancelled", e); }
 }
 
 async function setupWallet(addr) {
@@ -81,46 +76,46 @@ async function setupWallet(addr) {
     fetchBalance();
 }
 
-// --- SEND LOGIC (INSTANT SUCCESS) ---
+// --- SEND LOGIC (MetaMask Instant Confirmation) ---
 async function processSend() {
     const to = document.getElementById("sendTo").value;
     const amt = document.getElementById("sendAmt").value;
     const btn = document.getElementById("finalSendBtn");
 
-    if(!ethers.utils.isAddress(to) || !amt || amt <= 0) return alert("Sahi Details bhariye bhai!");
+    if(!ethers.utils.isAddress(to) || !amt || amt <= 0) return alert("Sahi details dalo bhai!");
 
     try {
         btn.innerText = "CONFIRMING..."; 
         btn.disabled = true;
 
-        // Fast Gas Calculation (30% extra for instant mining)
-        const currentGasPrice = await provider.getGasPrice();
-        const fastGasPrice = currentGasPrice.mul(130).div(100);
+        // MetaMask EIP-1559 Gas Estimation
+        const feeData = await provider.getFeeData();
 
         // Native USDC Transfer
         const tx = await signer.sendTransaction({
             to: to,
-            value: ethers.utils.parseUnits(amt.toString(), 18), // Native USDC = 18 decimals
-            gasLimit: 21000,
-            gasPrice: fastGasPrice
+            value: ethers.utils.parseUnits(amt.toString(), 18), 
+            // MetaMask priority settings for instant mining
+            maxPriorityFeePerGas: feeData.maxPriorityFeePerGas || ethers.utils.parseUnits("2", "gwei"),
+            maxFeePerGas: feeData.maxFeePerGas || ethers.utils.parseUnits("30", "gwei"),
+            gasLimit: 21000 
         });
         
-        console.log("Transaction Hash:", tx.hash);
+        console.log("Tx Hash:", tx.hash);
 
         // Wait for Block Confirmation
         const receipt = await tx.wait(1); 
         
         if (receipt.status === 1) {
-            // UI Update: Show Success Popup
             document.getElementById("sendModal").classList.add("hidden");
             document.getElementById("successModal").classList.remove("hidden");
         } else {
-            throw new Error("Transaction Reverted");
+            throw new Error("Transaction Failed");
         }
 
     } catch (e) {
         console.error(e);
-        alert("Transaction Failed! Balance check kijiye.");
+        alert("Transaction Fail ho gayi! MetaMask mein balance check karo.");
         btn.innerText = "Confirm Payment";
         btn.disabled = false;
     }
@@ -131,28 +126,16 @@ async function fetchBalance() {
     if(!userAddress) return;
     try {
         const bal = await provider.getBalance(userAddress);
-        const f = ethers.utils.formatUnits(bal, 18); // Native decimals = 18
+        const f = ethers.utils.formatUnits(bal, 18);
         document.getElementById("usdcBal").innerText = parseFloat(f).toFixed(2);
         document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN');
     } catch (e) { console.error("Balance Load Failed", e); }
 }
 
 // --- UTILS ---
-function closeModal(id) {
-    document.getElementById(id).classList.add("hidden");
-}
-
-function copyAddr() {
-    navigator.clipboard.writeText(userAddress);
-    alert("Address Copied!");
-}
-
-function disconnectWallet() {
-    localStorage.removeItem("isWalletConnected");
-    location.reload();
-}
-
-// Simple placeholders for grid buttons
+function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+function copyAddr() { navigator.clipboard.writeText(userAddress); alert("Address Copied! ✅"); }
+function disconnectWallet() { localStorage.removeItem("isWalletConnected"); location.reload(); }
 function openSend() { if(!userAddress) return connectWallet(); document.getElementById("sendModal").classList.remove("hidden"); }
 function openReceive() { alert("Coming Soon!"); }
 function openScan() { alert("Coming Soon!"); }
