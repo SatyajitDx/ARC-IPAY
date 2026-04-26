@@ -94,10 +94,10 @@
         <div class="glass p-6 mb-6">
             <h3 class="text-[#121271] font-black italic text-sm mb-5 uppercase text-center tracking-widest">Bills & Recharges</h3>
             <div class="grid grid-cols-4 gap-2 text-center">
-                <div onclick="openBilling('Mobile')" class="glass py-4 cursor-pointer active:scale-95"><i class="fa-solid fa-mobile-screen text-[#FF9933]"></i><p class="text-[7px] font-black mt-1">MOBILE</p></div>
-                <div onclick="openBilling('Electric')" class="glass py-4 cursor-pointer active:scale-95"><i class="fa-solid fa-lightbulb text-[#138808]"></i><p class="text-[7px] font-black mt-1">ELECTRIC</p></div>
-                <div onclick="openBilling('DTH')" class="glass py-4 cursor-pointer active:scale-95"><i class="fa-solid fa-tv text-[#FF9933]"></i><p class="text-[7px] font-black mt-1">DTH</p></div>
-                <div onclick="openBilling('WiFi')" class="glass py-4 cursor-pointer active:scale-95"><i class="fa-solid fa-wifi text-[#138808]"></i><p class="text-[7px] font-black mt-1">WIFI</p></div>
+                <div onclick="openBilling('Mobile')" class="glass py-4 cursor-pointer active:scale-95 transition-all"><i class="fa-solid fa-mobile-screen text-[#FF9933]"></i><p class="text-[7px] font-black mt-1">MOBILE</p></div>
+                <div onclick="openBilling('Electric')" class="glass py-4 cursor-pointer active:scale-95 transition-all"><i class="fa-solid fa-lightbulb text-[#138808]"></i><p class="text-[7px] font-black mt-1">ELECTRIC</p></div>
+                <div onclick="openBilling('DTH')" class="glass py-4 cursor-pointer active:scale-95 transition-all"><i class="fa-solid fa-tv text-[#FF9933]"></i><p class="text-[7px] font-black mt-1">DTH</p></div>
+                <div onclick="openBilling('WiFi')" class="glass py-4 cursor-pointer active:scale-95 transition-all"><i class="fa-solid fa-wifi text-[#138808]"></i><p class="text-[7px] font-black mt-1">WIFI</p></div>
             </div>
         </div>
     </div>
@@ -110,9 +110,9 @@
             </div>
             <div class="space-y-4">
                 <div>
-                    <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Recipient Address</label>
+                    <label id="inputLabel" class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Recipient Address</label>
                     <input type="text" id="sendTo" placeholder="0x..." class="w-full p-4 bg-gray-50 rounded-2xl border-none text-[11px] font-mono focus:ring-2 focus:ring-[#FF9933]">
-                    <div id="billingFields" class="mt-2"></div>
+                    <div id="billingFields" class="mt-4 text-left"></div>
                 </div>
                 <div>
                     <label class="text-[9px] font-black uppercase text-[#138808] ml-2 mb-1 block">Amount</label>
@@ -141,70 +141,38 @@
 
     <div id="scanModal" class="fixed inset-0 bg-black hidden flex items-center justify-center z-[600]">
         <video id="scanVideo" class="w-full h-full object-cover"></video>
-        <div class="absolute inset-0 border-[40px] border-black/60 flex items-center justify-center pointer-events-none">
-            <div class="w-64 h-64 border-2 border-white/50 rounded-3xl relative">
-                <div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#FF9933] rounded-tl-lg"></div>
-                <div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-[#138808] rounded-br-lg"></div>
-            </div>
-        </div>
         <button onclick="closeModal('scanModal')" class="absolute top-10 right-10 bg-white/20 p-4 rounded-full text-white text-2xl backdrop-blur-md">&times;</button>
     </div>
 
     <div id="historyModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-6 z-[500] backdrop-blur-sm">
         <div class="bg-white rounded-[32px] p-8 w-full max-w-sm shadow-2xl h-[80vh] flex flex-col">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-[#121271] font-black italic text-xl uppercase tracking-tighter">Transaction Logs</h3>
-                <button onclick="closeModal('historyModal')" class="text-gray-300 text-2xl">&times;</button>
-            </div>
-            <div id="txList" class="flex-1 overflow-y-auto space-y-3 pr-2">
-                <p class="text-[10px] text-center opacity-20 italic">Fetching from Arc Blockchain...</p>
-            </div>
-            <button onclick="closeModal('historyModal')" class="w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-bold uppercase text-xs mt-4">Close History</button>
+            <h3 class="text-[#121271] font-black italic text-xl uppercase mb-4">History</h3>
+            <div id="txList" class="flex-1 overflow-y-auto space-y-3"></div>
+            <button onclick="closeModal('historyModal')" class="w-full bg-gray-100 py-4 rounded-2xl font-bold mt-4">Close</button>
         </div>
     </div>
 
     <div id="receiptModal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-6 z-[600] backdrop-blur-md">
-        <div class="bg-white rounded-[32px] w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
-            <div class="bg-[#138808] p-8 text-center">
-                <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white">
-                    <i class="fa-solid fa-check text-4xl text-white"></i>
-                </div>
-                <h2 class="text-white font-black text-2xl uppercase italic tracking-wider">Payment Success</h2>
+        <div class="bg-white rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl">
+            <div class="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-check text-4xl text-white"></i>
             </div>
-            <div class="p-8 space-y-4">
-                <div class="text-center mb-6">
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Amount Sent</p>
-                    <h3 class="text-4xl font-black text-[#121271]" id="recAmt">0.00 USDC</h3>
-                    <p class="text-lg font-bold text-gray-500" id="recInr">≈ ₹0.00</p>
-                </div>
-                <div class="border-t border-dashed border-gray-200 pt-4 space-y-3">
-                    <div class="flex justify-between text-[10px] font-bold">
-                        <span class="text-gray-400 uppercase">To:</span>
-                        <span class="text-[#121271] font-mono" id="recTo">0x...</span>
-                    </div>
-                    <div class="flex justify-between text-[10px] font-bold">
-                        <span class="text-gray-400 uppercase">Status:</span>
-                        <span class="text-[#138808]">CONFIRMED</span>
-                    </div>
-                </div>
-                <button onclick="location.reload()" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-black text-sm uppercase mt-6 active:scale-95 transition-all">Done</button>
-            </div>
+            <h2 class="font-black text-2xl uppercase mb-2">Success</h2>
+            <h3 class="text-4xl font-black text-[#121271]" id="recAmt">0.00</h3>
+            <p class="text-gray-500 mb-6" id="recInr">₹0.00</p>
+            <p class="text-[10px] break-all opacity-50 mb-6" id="recTo"></p>
+            <button onclick="location.reload()" class="w-full bg-black text-white py-4 rounded-2xl font-black uppercase">Done</button>
         </div>
     </div>
 
     <div id="failModal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-6 z-[600] backdrop-blur-md">
-        <div class="bg-white rounded-[32px] w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
-            <div class="bg-red-600 p-8 text-center">
-                <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white">
-                    <i class="fa-solid fa-xmark text-4xl text-white"></i>
-                </div>
-                <h2 class="text-white font-black text-2xl uppercase italic tracking-wider">Payment Failed</h2>
+        <div class="bg-white rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl">
+            <div class="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-xmark text-4xl text-white"></i>
             </div>
-            <div class="p-8 text-center">
-                <p class="text-gray-400 text-xs font-bold uppercase mb-2">Error Reason</p>
-                <p id="failReason" class="text-[#121271] font-bold text-sm mb-8">Transaction was rejected or network is busy.</p>
-                <button onclick="closeModal('failModal')" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-black text-sm uppercase active:scale-95 transition-all">Try Again</button>
-            </div>
+            <h2 class="font-black text-2xl uppercase mb-4">Failed</h2>
+            <p id="failReason" class="text-sm mb-8"></p>
+            <button onclick="closeModal('failModal')" class="w-full bg-black text-white py-4 rounded-2xl font-black uppercase">Try Again</button>
         </div>
     </div>
 
