@@ -18,7 +18,7 @@ function updateInrCalc() {
 }
 
 async function connectWallet() {
-    if (!window.ethereum) return alert("Install MetaMask!");
+    if (!window.ethereum) return alert("Bhai, MetaMask install karo!");
     try {
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         try {
@@ -50,12 +50,13 @@ async function setupWallet(addr) {
     fetchBalance();
 }
 
+// --- SEND LOGIC (PRIORITY GAS FIX) ---
 async function processSend() {
     const to = document.getElementById("sendTo").value;
     const amt = document.getElementById("sendAmt").value;
     const btn = document.getElementById("finalSendBtn");
 
-    if(!ethers.utils.isAddress(to) || !amt) return alert("Bhai detail enter karo!");
+    if(!ethers.utils.isAddress(to) || !amt) return alert("Sahi detail enter karo!");
 
     try {
         btn.innerText = "CONFIRMING..."; btn.disabled = true;
@@ -64,8 +65,13 @@ async function processSend() {
         const contract = new ethers.Contract(USDC_ADDR, abi, signer);
         const amountUnits = ethers.utils.parseUnits(amt.toString(), 18);
 
-        // High priority gas logic for instant confirmation
-        const tx = await contract.transfer(to, amountUnits, { gasLimit: 100000 });
+        // --- SCREENSHOT BASED GAS LOGIC ---
+        // Max fee approx 0.0005 USDC ke liye high priority set kar rahe hain
+        const tx = await contract.transfer(to, amountUnits, { 
+            gasLimit: 65000, 
+            maxPriorityFeePerGas: ethers.utils.parseUnits("25", "gwei"), 
+            maxFeePerGas: ethers.utils.parseUnits("40", "gwei") 
+        });
         
         await tx.wait(1); 
         
