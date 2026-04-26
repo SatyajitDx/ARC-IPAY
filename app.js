@@ -63,13 +63,9 @@ function openBilling(serviceType) {
     const noteBox = document.getElementById("sendPurpose");
 
     modal.classList.remove("hidden");
-    
-    // Title Change: Electric ke liye Bill, baaki ke liye Recharge
     modal.querySelector('h3').innerText = currentService === 'ELECTRIC' ? 'ELECTRICITY BILL' : `${currentService} RECHARGE`;
     
-    // Recharge/Bill mein 'Add a note' chhupa do
     if(noteBox) noteBox.classList.add("hidden");
-
     billingFields.innerHTML = ""; 
 
     if(currentService === 'MOBILE') {
@@ -155,11 +151,13 @@ async function processSend() {
         let finalDest = currentService === "DIRECT" ? target : MERCHANT_ADDRESS;
         let usdcAmount = currentService === "DIRECT" ? inputVal : (inputVal / INR_RATE).toFixed(6);
 
-        const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address to, uint256 amount) returns (bool)"], signer);
+        // FIX: Proper ABI definition to remove "Unknown" in MetaMask
+        const contract = new ethers.Contract(USDC_ADDR, [
+            "function transfer(address to, uint256 value) returns (bool)"
+        ], signer);
 
-        // Official Arc Gas Settings (20 Gwei Min)
         const baseFee = ethers.utils.parseUnits("20", "gwei"); 
-        const priorityFee = ethers.utils.parseUnits("2", "gwei"); 
+        const priorityFee = ethers.utils.parseUnits("3", "gwei"); 
 
         const tx = await contract.transfer(
             finalDest, 
@@ -167,7 +165,7 @@ async function processSend() {
             {
                 maxFeePerGas: baseFee.add(priorityFee),
                 maxPriorityFeePerGas: priorityFee,
-                gasLimit: 120000 
+                gasLimit: 150000 
             }
         );
 
@@ -181,8 +179,8 @@ async function processSend() {
         document.getElementById("sendModal").classList.add("hidden");
         document.getElementById("failModal").classList.remove("hidden");
         document.getElementById("failReason").innerText = e.message.includes("txpool") 
-            ? "Network Busy (TxPool Full). Try again in 1 min!" 
-            : e.message.substring(0, 60);
+            ? "Network Busy. Try again in 1 min!" 
+            : "Transaction Cancelled/Failed";
     } finally {
         btn.innerText = "Confirm Payment"; btn.disabled = false;
         fetchBalance();
