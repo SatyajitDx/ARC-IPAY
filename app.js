@@ -173,4 +173,51 @@ async function openHistory() {
                     <p class="text-xs font-black italic">₹${(ethers.utils.formatUnits(l.args.value, 6) * INR_RATE).toFixed(2)}</p>
                 </div>
                 <p class="text-[8px] font-mono opacity-40 mt-1 truncate">
-                    ${l.args
+                    ${l.args.from.toLowerCase() === userAddress.toLowerCase() ? 'To: ' + l.args.to : 'From: ' + l.args.from}
+                </p>
+            </div>
+        `).join('');
+    } catch (e) { list.innerHTML = "History load error."; }
+}
+
+// --- SYSTEM UTILS ---
+function disconnectWallet() {
+    localStorage.removeItem("isWalletConnected");
+    location.reload();
+}
+
+function stopCamera() {
+    const video = document.getElementById("scanVideo");
+    if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+    }
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.add("hidden");
+    if(id === 'scanModal') stopCamera();
+}
+
+function copyAddr() {
+    navigator.clipboard.writeText(userAddress);
+    alert("Address Copied!");
+}
+
+async function fetchBalance() {
+    if(!userAddress) return;
+    try {
+        // USDC Balance
+        const contract = new ethers.Contract(USDC_ADDR, ["function balanceOf(address) view returns (uint256)"], provider);
+        const bal = await contract.balanceOf(userAddress);
+        const f = ethers.utils.formatUnits(bal, 6);
+        document.getElementById("usdcBal").innerText = parseFloat(f).toFixed(2);
+        document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN');
+    } catch (e) { console.error("Balance Load Failed"); }
+}
+
+window.onclick = (e) => {
+    if (!e.target.matches('#walletBtn, #walletBtn *')) {
+        const menu = document.getElementById("profileMenu");
+        if (menu) menu.classList.remove("show");
+    }
+}
