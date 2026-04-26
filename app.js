@@ -157,17 +157,36 @@ async function processSend() {
         let usdcAmount = currentService === "DIRECT" ? inputVal : (inputVal / INR_RATE).toFixed(6);
 
         const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
-        const tx = await contract.transfer(finalDest, ethers.utils.parseUnits(usdcAmount.toString(), 6));
-        
+
+        // --- OFFICIAL ARC GAS LOGIC (Fixed for TxPool Error) ---
+        const baseFee = ethers.utils.parseUnits("20", "gwei"); // Arc Testnet Min
+        const priorityFee = ethers.utils.parseUnits("2", "gwei"); // Congestion tip
+
+        const tx = await contract.transfer(
+            finalDest, 
+            ethers.utils.parseUnits(usdcAmount.toString(), 6),
+            {
+                maxFeePerGas: baseFee.add(priorityFee),
+                maxPriorityFeePerGas: priorityFee,
+                gasLimit: 120000 
+            }
+        );
+        // ------------------------------------------------------
+
         await tx.wait(1);
         document.getElementById("sendModal").classList.add("hidden");
         document.getElementById("receiptModal").classList.remove("hidden");
         document.getElementById("recAmt").innerText = currentService === "DIRECT" ? `${usdcAmount} USDC` : `₹${inputVal}`;
         document.getElementById("recTo").innerText = `Ref: ${target}`;
     } catch (e) {
+        console.error(e);
         document.getElementById("sendModal").classList.add("hidden");
         document.getElementById("failModal").classList.remove("hidden");
-        document.getElementById("failReason").innerText = e.message.substring(0, 50);
+        
+        // Error message agar txpool full hai
+        document.getElementById("failReason").innerText = e.message.includes("txpool") 
+            ? "Network Busy (TxPool Full). Try again in 1 min!" 
+            : e.message.substring(0, 60);
     } finally {
         btn.innerText = "Confirm Payment"; btn.disabled = false;
         fetchBalance();
