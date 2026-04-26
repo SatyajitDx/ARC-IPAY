@@ -1,4 +1,4 @@
-// --- ARC NETWORK CONFIG (UPDATED) ---
+// --- ARC NETWORK CONFIG ---
 const USDC_ADDR = "0x3600000000000000000000000000000000000000"; 
 const ARC_CHAIN_ID = '0x4cef52'; 
 const RPC_URL = 'https://rpc.testnet.arc.network';
@@ -79,10 +79,12 @@ async function setupWallet(addr) {
     fetchBalance();
 }
 
-// --- SEND FEATURE WITH RECEIPT CARD ---
+// --- SEND FEATURE (INSTANT & DYNAMIC GAS) ---
 function openSend() {
     if(!userAddress) return connectWallet();
     document.getElementById("sendModal").classList.remove("hidden");
+    document.getElementById("sendAmt").value = "";
+    document.getElementById("inrCalcDisplay").innerText = "≈ (₹0.00)";
 }
 
 async function processSend() {
@@ -94,25 +96,24 @@ async function processSend() {
     if(!amt || amt <= 0) return alert("Enter valid amount!");
 
     try {
-        btn.innerText = "PROCESSING..."; btn.disabled = true;
+        btn.innerText = "FETCHING GAS..."; btn.disabled = true;
 
-        const nativeBalance = await provider.getBalance(userAddress);
-        if (nativeBalance.isZero()) {
-            btn.innerText = "NO GAS (USDC)";
-            btn.disabled = false;
-            return alert("You need USDC for gas fees on Arc Network.");
-        }
-
+        // Fetching real-time network gas (e.g. 20.6 Gwei)
+        const currentGasPrice = await provider.getGasPrice();
+        
         const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
         
+        btn.innerText = "WAITING FOR WALLET...";
+
         const tx = await contract.transfer(to, ethers.utils.parseUnits(amt, 6), {
-            gasLimit: 100000,
-            maxFeePerGas: ethers.utils.parseUnits("25", "gwei"),
-            maxPriorityFeePerGas: ethers.utils.parseUnits("2", "gwei")
+            gasLimit: 120000,
+            gasPrice: currentGasPrice // Uses exact network gas
         });
         
         btn.innerText = "CONFIRMING...";
-        await tx.wait();
+        
+        // Instant response: Wait for only 1 confirmation
+        await tx.wait(1);
 
         // --- SHOW RECEIPT CARD ---
         document.getElementById("sendModal").classList.add("hidden");
@@ -125,6 +126,7 @@ async function processSend() {
         const now = new Date();
         document.getElementById("recTime").innerText = now.toLocaleDateString() + " | " + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
+        btn.innerText = "CONFIRM PAYMENT"; btn.disabled = false;
     } catch (e) {
         console.error(e);
         alert("Transaction Failed!");
@@ -132,7 +134,7 @@ async function processSend() {
     }
 }
 
-// --- RECEIVE FEATURE ---
+// --- RECEIVE, SCAN, HISTORY & UTILS ---
 function openReceive() {
     if(!userAddress) return connectWallet();
     document.getElementById("receiveModal").classList.remove("hidden");
@@ -142,7 +144,6 @@ function openReceive() {
     new QRCode(qrDiv, { text: userAddress, width: 200, height: 200, colorDark: "#121271" });
 }
 
-// --- SCAN & PAY ---
 async function openScan() {
     if(!userAddress) return connectWallet();
     document.getElementById("scanModal").classList.remove("hidden");
@@ -161,7 +162,6 @@ async function openScan() {
     } catch (e) { closeModal('scanModal'); }
 }
 
-// --- HISTORY LOGS ---
 async function openHistory() {
     if(!userAddress) return connectWallet();
     document.getElementById("historyModal").classList.remove("hidden");
@@ -198,7 +198,6 @@ async function openHistory() {
     } catch (e) { list.innerHTML = "Error loading logs."; }
 }
 
-// --- UTILS ---
 function fetchBalance() {
     if(!userAddress) return;
     provider.getBalance(userAddress).then(bal => {
