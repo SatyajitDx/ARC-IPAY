@@ -1,9 +1,9 @@
 // --- ARC NETWORK CONFIG ---
 const USDC_ADDR = "0x3600000000000000000000000000000000000000"; 
 const ARC_CHAIN_ID = '0x4cef52'; 
-const INR_RATE = 94.25; // Updated Rate
+const INR_RATE = 94.25; 
 
-let userAddress = "", provider, signer, codeReader;
+let userAddress = "", provider, signer;
 
 // --- INITIALIZE ON LOAD ---
 window.addEventListener('load', async () => {
@@ -57,7 +57,7 @@ async function connectWallet() {
                         chainId: ARC_CHAIN_ID,
                         chainName: 'Arc Network Testnet',
                         rpcUrls: ['https://rpc-testnet.arcnetwork.io'],
-                        nativeCurrency: { name: 'ARC', symbol: 'ARC', decimals: 18 },
+                        nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
                         blockExplorerUrls: ['https://explorer-testnet.arcnetwork.io']
                     }]
                 });
@@ -81,127 +81,65 @@ async function setupWallet(addr) {
     fetchBalance();
 }
 
-// --- SEND FEATURE ---
-function openSend() {
-    if(!userAddress) return connectWallet();
-    document.getElementById("sendModal").classList.remove("hidden");
-    document.getElementById("sendAmt").value = "";
-    document.getElementById("inrCalcDisplay").innerText = "≈ (₹0.00)";
-}
-
+// --- SEND LOGIC (INSTANT SUCCESS) ---
 async function processSend() {
     const to = document.getElementById("sendTo").value;
     const amt = document.getElementById("sendAmt").value;
     const btn = document.getElementById("finalSendBtn");
 
-    if(!ethers.utils.isAddress(to)) return alert("Invalid Recipient Address!");
-    if(!amt || amt <= 0) return alert("Enter a valid amount!");
+    if(!ethers.utils.isAddress(to) || !amt || amt <= 0) return alert("Sahi Details bhariye bhai!");
 
     try {
-        btn.innerText = "CHECKING GAS..."; btn.disabled = true;
+        btn.innerText = "CONFIRMING..."; 
+        btn.disabled = true;
 
-        const gasBalance = await provider.getBalance(userAddress);
-        if (gasBalance.isZero()) {
-            btn.innerText = "NO GAS (ARC)";
-            btn.disabled = false;
-            return alert("You need ARC tokens for gas fees. Please claim from Faucet.");
-        }
+        // Fast Gas Calculation (30% extra for instant mining)
+        const currentGasPrice = await provider.getGasPrice();
+        const fastGasPrice = currentGasPrice.mul(130).div(100);
 
-        const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
-        
-        btn.innerText = "WAITING FOR WALLET...";
-
-        // Added manual gasLimit to stop "Claim via Faucet" errors on OKX
-        const tx = await contract.transfer(to, ethers.utils.parseUnits(amt, 6), {
-            gasLimit: 80000 
+        // Native USDC Transfer
+        const tx = await signer.sendTransaction({
+            to: to,
+            value: ethers.utils.parseUnits(amt.toString(), 18), // Native USDC = 18 decimals
+            gasLimit: 21000,
+            gasPrice: fastGasPrice
         });
         
-        btn.innerText = "CONFIRMING...";
-        await tx.wait();
+        console.log("Transaction Hash:", tx.hash);
+
+        // Wait for Block Confirmation
+        const receipt = await tx.wait(1); 
         
-        alert("Transaction Successful!");
-        location.reload();
+        if (receipt.status === 1) {
+            // UI Update: Show Success Popup
+            document.getElementById("sendModal").classList.add("hidden");
+            document.getElementById("successModal").classList.remove("hidden");
+        } else {
+            throw new Error("Transaction Reverted");
+        }
+
     } catch (e) {
         console.error(e);
-        alert("Transaction Failed!");
-        btn.innerText = "CONFIRM PAYMENT"; btn.disabled = false;
+        alert("Transaction Failed! Balance check kijiye.");
+        btn.innerText = "Confirm Payment";
+        btn.disabled = false;
     }
 }
 
-// --- RECEIVE FEATURE ---
-function openReceive() {
-    if(!userAddress) return connectWallet();
-    document.getElementById("receiveModal").classList.remove("hidden");
-    const qrDiv = document.getElementById("qrcode");
-    qrDiv.innerHTML = "";
-    document.getElementById("myAddr").innerText = userAddress;
-    new QRCode(qrDiv, { text: userAddress, width: 200, height: 200, colorDark: "#121271" });
-}
-
-// --- SCAN & PAY FEATURE ---
-async function openScan() {
-    if(!userAddress) return connectWallet();
-    document.getElementById("scanModal").classList.remove("hidden");
-    codeReader = new ZXing.BrowserQRCodeReader();
-    const videoElem = document.getElementById("scanVideo");
+// --- BALANCES ---
+async function fetchBalance() {
+    if(!userAddress) return;
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        videoElem.srcObject = stream;
-        videoElem.play();
-        const result = await codeReader.decodeFromVideoElement(videoElem);
-        if(ethers.utils.isAddress(result.text)) {
-            closeModal('scanModal');
-            document.getElementById("sendModal").classList.remove("hidden");
-            document.getElementById("sendTo").value = result.text;
-        }
-    } catch (e) { closeModal('scanModal'); }
-}
-
-// --- HISTORY FEATURE ---
-async function openHistory() {
-    if(!userAddress) return connectWallet();
-    document.getElementById("historyModal").classList.remove("hidden");
-    const list = document.getElementById("txList");
-    list.innerHTML = `<p class="text-[10px] text-center opacity-20 italic">Loading Blockchain Logs...</p>`;
-    
-    try {
-        const contract = new ethers.Contract(USDC_ADDR, ["event Transfer(address indexed from, address indexed to, uint256 value)"], provider);
-        const filter = contract.filters.Transfer(userAddress, null);
-        const logs = await contract.queryFilter(filter, -1000, "latest");
-        
-        if(logs.length === 0) {
-            list.innerHTML = `<p class="text-center text-xs opacity-20 mt-10">No transactions</p>`;
-            return;
-        }
-
-        list.innerHTML = logs.slice(-15).reverse().map(l => `
-            <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 mb-2">
-                <div class="flex justify-between items-center">
-                    <p class="text-[9px] font-black ${l.args.from.toLowerCase() === userAddress.toLowerCase() ? 'text-red-500' : 'text-green-500'}">
-                        ${l.args.from.toLowerCase() === userAddress.toLowerCase() ? 'SENT' : 'RECEIVED'}
-                    </p>
-                    <p class="text-xs font-black italic">₹${(ethers.utils.formatUnits(l.args.value, 6) * INR_RATE).toFixed(2)}</p>
-                </div>
-                <p class="text-[8px] font-mono opacity-40 mt-1 truncate">
-                    ${l.args.from.toLowerCase() === userAddress.toLowerCase() ? 'To: ' + l.args.to : 'From: ' + l.args.from}
-                </p>
-            </div>
-        `).join('');
-    } catch (e) { list.innerHTML = "Error loading history."; }
+        const bal = await provider.getBalance(userAddress);
+        const f = ethers.utils.formatUnits(bal, 18); // Native decimals = 18
+        document.getElementById("usdcBal").innerText = parseFloat(f).toFixed(2);
+        document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN');
+    } catch (e) { console.error("Balance Load Failed", e); }
 }
 
 // --- UTILS ---
-function disconnectWallet() {
-    localStorage.removeItem("isWalletConnected");
-    location.reload();
-}
-
 function closeModal(id) {
     document.getElementById(id).classList.add("hidden");
-    if(id === 'scanModal' && codeReader) {
-        const stream = document.getElementById("scanVideo").srcObject;
-        if(stream) stream.getTracks().forEach(t => t.stop());
-    }
 }
 
 function copyAddr() {
@@ -209,16 +147,16 @@ function copyAddr() {
     alert("Address Copied!");
 }
 
-async function fetchBalance() {
-    if(!userAddress) return;
-    try {
-        const contract = new ethers.Contract(USDC_ADDR, ["function balanceOf(address) view returns (uint256)"], provider);
-        const bal = await contract.balanceOf(userAddress);
-        const f = ethers.utils.formatUnits(bal, 6);
-        document.getElementById("usdcBal").innerText = parseFloat(f).toFixed(2);
-        document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN');
-    } catch (e) { console.error("Balance Load Failed"); }
+function disconnectWallet() {
+    localStorage.removeItem("isWalletConnected");
+    location.reload();
 }
+
+// Simple placeholders for grid buttons
+function openSend() { if(!userAddress) return connectWallet(); document.getElementById("sendModal").classList.remove("hidden"); }
+function openReceive() { alert("Coming Soon!"); }
+function openScan() { alert("Coming Soon!"); }
+function openHistory() { alert("Coming Soon!"); }
 
 window.onclick = (e) => {
     if (!e.target.matches('#walletBtn, #walletBtn *')) {
