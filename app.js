@@ -249,4 +249,106 @@ window.onclick = (e) => {
         const menu = document.getElementById("profileMenu");
         if (menu && menu.classList.contains("show")) menu.classList.remove("show");
     }
+
+    // --- CONFIG (Rates & Addresses) ---
+const USDC_ADDR = "0x3600000000000000000000000000000000000000"; 
+const INR_RATE = 94.25; 
+let currentService = ""; // Kaunsi service select hui hai
+
+// --- 1. BILLING MODAL OPENER (Dynamic UI) ---
+function openBilling(serviceType) {
+    if(!userAddress) return connectWallet();
+    
+    currentService = serviceType.toUpperCase();
+    const modal = document.getElementById("sendModal");
+    const label = document.querySelector('label[for="sendTo"]'); // Recipient label
+    const input = document.getElementById("sendTo");
+    const title = modal.querySelector('h3');
+    const extraFields = document.getElementById("extraFields") || createExtraFields();
+
+    modal.classList.remove("hidden");
+    title.innerText = `${currentService} RECHARGE`;
+    
+    // Dynamic Input UI logic
+    if(currentService === 'MOBILE') {
+        label.innerText = "Mobile Number";
+        input.placeholder = "Enter 10 digit number";
+        extraFields.innerHTML = `
+            <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Operator</label>
+            <select id="operator" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold mb-4">
+                <option>JIO Prepaid</option>
+                <option>Airtel Prepaid</option>
+                <option>VI Prepaid</option>
+                <option>BSNL</option>
+            </select>
+        `;
+    } else {
+        label.innerText = "Consumer ID / Account No";
+        input.placeholder = "Enter ID from your bill";
+        extraFields.innerHTML = `
+            <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Biller Name</label>
+            <input type="text" id="biller" placeholder="e.g. Tata Power / Excitel" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold mb-4">
+        `;
+    }
+}
+
+// Extra fields container banane ke liye helper
+function createExtraFields() {
+    const div = document.createElement('div');
+    div.id = "extraFields";
+    const sendToInput = document.getElementById("sendTo");
+    sendToInput.parentNode.after(div);
+    return div;
+}
+
+// --- 2. UPDATED PAYMENT LOGIC ---
+async function processSend() {
+    const targetId = document.getElementById("sendTo").value; // Mobile or Consumer ID
+    const inrAmt = document.getElementById("sendAmt").value;
+    const btn = document.getElementById("finalSendBtn");
+
+    if(!targetId || !inrAmt) return alert("Please fill all details!");
+
+    try {
+        btn.innerText = "PROCESSING BILL..."; btn.disabled = true;
+
+        // Backend Calculation
+        const usdcToPay = (inrAmt / INR_RATE).toFixed(6);
+        const finalCryptoAmount = ethers.utils.parseUnits(usdcToPay, 6);
+
+        // Actual Transfer (Yahan 'to' address aapka service wallet address hoga)
+        const serviceWallet = "0xYOUR_MERCHANT_WALLET_ADDRESS"; // Yahan apna wallet address dalo jahan payment receive karni hai
+        
+        const contract = new ethers.Contract(USDC_ADDR, ["function transfer(address,uint256) returns (bool)"], signer);
+        
+        btn.innerText = "AUTHORIZING...";
+        const tx = await contract.transfer(serviceWallet, finalCryptoAmount);
+        
+        await tx.wait(1);
+
+        // SUCCESS UI
+        document.getElementById("sendModal").classList.add("hidden");
+        document.getElementById("receiptModal").classList.remove("hidden");
+        
+        document.getElementById("recAmt").innerText = `₹${inrAmt}`;
+        document.getElementById("recInr").innerText = `Service: ${currentService}`;
+        document.getElementById("recTo").innerText = `Ref: ${targetId}`;
+
+        btn.innerText = "Confirm Payment"; btn.disabled = false;
+        fetchBalance();
+
+    } catch (e) {
+        alert("Payment Failed! Check balance/gas.");
+        btn.innerText = "Confirm Payment"; btn.disabled = false;
+    }
+}
+
+// --- 3. HTML Integration ---
+// Apne HTML ke 'Bills & Recharges' section mein onclick badal do:
+/*
+<div onclick="openBilling('Mobile')" class="glass py-4 cursor-pointer"><i class="fa-solid fa-mobile-screen text-[#FF9933]"></i><p class="text-[7px] font-black mt-1">MOBILE</p></div>
+<div onclick="openBilling('Electric')" class="glass py-4 cursor-pointer"><i class="fa-solid fa-lightbulb text-[#138808]"></i><p class="text-[7px] font-black mt-1">ELECTRIC</p></div>
+<div onclick="openBilling('DTH')" class="glass py-4 cursor-pointer"><i class="fa-solid fa-tv text-[#FF9933]"></i><p class="text-[7px] font-black mt-1">DTH</p></div>
+<div onclick="openBilling('WiFi')" class="glass py-4 cursor-pointer"><i class="fa-solid fa-wifi text-[#138808]"></i><p class="text-[7px] font-black mt-1">WIFI</p></div>
+*/
 }
