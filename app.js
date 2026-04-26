@@ -1,4 +1,3 @@
-// --- ARC NETWORK CONFIG ---
 const USDC_ADDR = "0x3600000000000000000000000000000000000000"; 
 const ARC_CHAIN_ID = '0x4cef52'; 
 const INR_RATE = 94.25; 
@@ -19,7 +18,7 @@ function updateInrCalc() {
 }
 
 async function connectWallet() {
-    if (!window.ethereum) return alert("Bhai, MetaMask install karo!");
+    if (!window.ethereum) return alert("Install MetaMask!");
     try {
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         try {
@@ -46,33 +45,27 @@ async function setupWallet(addr) {
     signer = provider.getSigner();
     document.getElementById("dot").classList.replace("bg-red-500", "bg-green-500");
     document.getElementById("dot").classList.remove("animate-pulse");
-    document.getElementById("walletLabel").innerText = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4).toUpperCase();
+    document.getElementById("walletLabel").innerText = addr.substring(0, 6).toUpperCase() + "..." + addr.substring(addr.length - 4).toUpperCase();
     localStorage.setItem("isWalletConnected", "true");
     fetchBalance();
 }
 
-// --- SEND LOGIC (META-FIXED) ---
 async function processSend() {
     const to = document.getElementById("sendTo").value;
     const amt = document.getElementById("sendAmt").value;
     const btn = document.getElementById("finalSendBtn");
 
-    if(!ethers.utils.isAddress(to) || !amt) return alert("Sahi details dalo!");
+    if(!ethers.utils.isAddress(to) || !amt) return alert("Bhai detail enter karo!");
 
     try {
-        btn.innerText = "CONFIRMING..."; 
-        btn.disabled = true;
+        btn.innerText = "CONFIRMING..."; btn.disabled = true;
 
-        // SMART CONTRACT LOGIC (As seen in your successful screenshot)
         const abi = ["function transfer(address to, uint256 amount) public returns (bool)"];
         const contract = new ethers.Contract(USDC_ADDR, abi, signer);
-        
-        // 18 Decimals for Arc USDC
         const amountUnits = ethers.utils.parseUnits(amt.toString(), 18);
 
-        const tx = await contract.transfer(to, amountUnits, {
-            gasLimit: 100000 // Higher limit for contract interaction
-        });
+        // High priority gas logic for instant confirmation
+        const tx = await contract.transfer(to, amountUnits, { gasLimit: 100000 });
         
         await tx.wait(1); 
         
@@ -81,15 +74,15 @@ async function processSend() {
 
     } catch (e) {
         console.error(e);
-        alert("Transaction Failed! Balance check karein.");
-        btn.innerText = "Confirm Payment";
-        btn.disabled = false;
+        document.getElementById("sendModal").classList.add("hidden");
+        document.getElementById("failedModal").classList.remove("hidden");
+        btn.innerText = "Confirm Payment"; btn.disabled = false;
     }
 }
 
 async function fetchBalance() {
+    if(!userAddress) return;
     try {
-        // Checking balance via contract to be safe
         const abi = ["function balanceOf(address) view returns (uint256)"];
         const contract = new ethers.Contract(USDC_ADDR, abi, provider);
         const bal = await contract.balanceOf(userAddress);
