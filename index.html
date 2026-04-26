@@ -3,99 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-    <title>ARC INDIPAY - FINAL PRO</title>
+    <title>ARC INDIPAY - WEB3</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
     <style>
-        body { background: linear-gradient(160deg, #FF9933 0%, #FFFFFF 50%, #138808 100%) !important; min-height: 100vh; font-family: sans-serif; margin: 0; }
-        .app-container { max-width: 480px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
-        .glass { background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.3); border-radius: 24px; color: #000; }
-        .tiranga-text { background: linear-gradient(90deg, #FF9933 0%, #000080 50%, #138808 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; }
-        .dropdown-menu { display: none; position: absolute; right: 0; top: 45px; background: white; min-width: 160px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border-radius: 12px; z-index: 1000; padding: 10px 0; }
+        body { background: linear-gradient(160deg, #FF9933 0%, #FFFFFF 50%, #138808 100%) !important; min-height: 100vh; font-family: sans-serif; margin: 0; overflow-x: hidden; }
+        .app-container { max-width: 480px; margin: 0 auto; padding: 20px; }
+        .glass { background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.3); border-radius: 28px; }
+        .dropdown-menu { display: none; position: absolute; right: 0; top: 45px; background: white; min-width: 160px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border-radius: 12px; z-index: 1000; overflow: hidden; }
         .show { display: block !important; }
         .hidden { display: none !important; }
-        input { background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0,0,0,0.1) !important; width: 100%; padding: 15px; border-radius: 12px; margin-bottom: 10px; font-weight: bold; }
     </style>
 </head>
-<body onload="autoConnect()">
+<body>
     <div class="app-container">
         <div class="flex justify-between items-center mb-8">
-    <div class="flex items-center gap-3 bg-white p-2 px-4 rounded-full shadow-md border border-gray-100">
-        <div class="flex items-center gap-1 font-black italic text-lg uppercase tracking-tighter">
-            <span style="color: #FF9933;">Arc</span> 
-            <span style="color: #121271;">Indi</span>
-            <span style="color: #138808;">Pay</span>
+            <div class="flex items-center gap-3 bg-white p-2 px-4 rounded-full shadow-md">
+                <div class="flex items-center gap-1 font-black italic text-lg uppercase tracking-tighter">
+                    <span style="color: #FF9933;">Arc</span> <span style="color: #121271;">Indi</span> <span style="color: #138808;">Pay</span>
+                </div>
+                <div class="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-gray-50">
+                    <img src="logo.png" class="w-full h-full object-contain" alt="logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/6001/6001527.png'">
+                </div>
+            </div>
+            <div class="relative">
+                <button id="walletBtn" onclick="toggleProfile()" class="glass py-2 px-4 flex items-center gap-2 text-[10px] font-black uppercase">
+                    <span id="dot" class="bg-red-500 w-2 h-2 rounded-full animate-pulse"></span>
+                    <span id="walletLabel">Connect Wallet</span>
+                </button>
+                <div id="profileMenu" class="dropdown-menu">
+                    <button onclick="copyAddr()" class="w-full text-left px-4 py-3 border-b hover:bg-gray-50 font-bold text-xs">Copy Address</button>
+                    <button onclick="disconnectWallet()" class="w-full text-left px-4 py-3 text-red-500 hover:bg-red-50 font-bold text-xs">Disconnect</button>
+                </div>
+            </div>
         </div>
-        <div class="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-gray-50">
-            <img src="logo.png" class="w-full h-full object-contain" alt="logo">
-        </div>
-    </div>
-    
-    <div class="relative">
-    <button id="walletBtn" onclick="toggleProfile()" class="glass py-2 px-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-tighter">
-        <span id="dot" class="bg-red-500 w-2 h-2 rounded-full animate-pulse"></span>
-        <span id="walletLabel">Connect Wallet</span>
-    </button>
-    <div id="profileMenu" class="dropdown-menu">
-        <button onclick="copyAddr()" class="w-full text-left px-4 py-2 border-b hover:bg-gray-50">Copy Address</button>
-        <button onclick="disconnectWallet()" class="w-full text-left px-4 py-2 text-red-500 hover:bg-red-50">Disconnect</button>
-    </div>
-</div>
-</div>
 
         <div class="glass p-8 mb-8 text-center shadow-xl">
-            <p class="text-[10px] opacity-60 mb-1 uppercase tracking-widest">Arc Network (Testnet)</p>
+            <p class="text-[10px] opacity-60 mb-1 uppercase font-bold tracking-widest">Arc Network (Testnet)</p>
             <h1 class="text-5xl font-black italic text-black"><span id="usdcBal">0.00</span> <span class="text-2xl opacity-40">USDC</span></h1>
-            <p class="text-xl font-bold mt-1 text-[#000080]">≈ ₹<span id="inrBal">0.00</span></p>
+            <p class="text-xl font-bold mt-1 text-[#121271]">≈ ₹<span id="inrBal">0.00</span></p>
         </div>
 
         <div class="grid grid-cols-2 gap-4 mb-4">
-            <div onclick="openSend()" class="glass p-8 text-center cursor-pointer active:scale-95"><i class="fa-solid fa-paper-plane text-3xl mb-3 text-[#FF9933]"></i><p class="text-xs font-black uppercase italic">Send</p></div>
-            <div onclick="openReceive()" class="glass p-8 text-center cursor-pointer active:scale-95"><i class="fa-solid fa-qrcode text-3xl mb-3 text-[#000080]"></i><p class="text-xs font-black uppercase italic">Receive</p></div>
+            <div onclick="openSend()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
+                <i class="fa-solid fa-paper-plane text-3xl mb-3 text-[#FF9933]"></i>
+                <p class="text-xs font-black uppercase italic">Send</p>
+            </div>
+            <div onclick="openReceive()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
+                <i class="fa-solid fa-qrcode text-3xl mb-3 text-[#121271]"></i>
+                <p class="text-xs font-black uppercase italic">Receive</p>
+            </div>
         </div>
         <div class="grid grid-cols-2 gap-4 mb-8">
-            <div onclick="alert('Scanner Ready')" class="glass p-8 text-center cursor-pointer active:scale-95"><i class="fa-solid fa-expand text-3xl mb-3 text-[#138808]"></i><p class="text-xs font-black uppercase italic">Scan & Pay</p></div>
-            <div onclick="getTxLogs()" class="glass p-8 text-center cursor-pointer active:scale-95"><i class="fa-solid fa-clock-rotate-left text-3xl mb-3 opacity-40"></i><p class="text-xs font-black uppercase italic">History</p></div>
-        </div>
-
-        <div class="glass p-6 mb-6">
-            <h3 class="text-[#000080] font-black italic text-sm mb-5 uppercase text-center tracking-widest">Bills & Recharges</h3>
-            <div class="grid grid-cols-4 gap-2 text-center">
-                <div onclick="alert('Mobile Ready')" class="glass py-4 cursor-pointer active:scale-95"><i class="fa-solid fa-mobile-screen text-[#FF9933]"></i><p class="text-[8px] font-black mt-1 uppercase">Mobile</p></div>
-                <div onclick="alert('Electric Ready')" class="glass py-4 cursor-pointer active:scale-95"><i class="fa-solid fa-lightbulb text-[#138808]"></i><p class="text-[8px] font-black mt-1 uppercase">Electric</p></div>
-                <div onclick="alert('DTH Ready')" class="glass py-4 cursor-pointer active:scale-95"><i class="fa-solid fa-tv text-[#FF9933]"></i><p class="text-[8px] font-black mt-1 uppercase">DTH</p></div>
-                <div onclick="alert('WiFi Ready')" class="glass py-4 cursor-pointer active:scale-95"><i class="fa-solid fa-wifi text-[#138808]"></i><p class="text-[8px] font-black mt-1 uppercase">WiFi</p></div>
+            <div onclick="openScan()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
+                <i class="fa-solid fa-expand text-3xl mb-3 text-[#138808]"></i>
+                <p class="text-xs font-black uppercase italic">Scan & Pay</p>
+            </div>
+            <div onclick="openHistory()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
+                <i class="fa-solid fa-clock-rotate-left text-3xl mb-3 opacity-40"></i>
+                <p class="text-xs font-black uppercase italic">History</p>
             </div>
         </div>
 
         <div class="glass p-6 mb-6">
-            <h3 class="text-[#000080] font-black italic text-sm mb-5 uppercase text-center tracking-widest">Bookings & Tickets</h3>
+            <h3 class="text-[#121271] font-black italic text-sm mb-5 uppercase text-center tracking-widest">Bills & Recharges</h3>
             <div class="grid grid-cols-4 gap-2 text-center">
-                <div onclick="alert('Flight Service Ready')" class="glass py-4 cursor-pointer active:scale-95"><i class="fa-solid fa-plane text-[#FF9933]"></i><p class="text-[8px] font-black mt-1 uppercase">Flight</p></div>
-                <div onclick="alert('Bus Service Ready')" class="glass py-4 cursor-pointer active:scale-95"><i class="fa-solid fa-bus text-[#138808]"></i><p class="text-[8px] font-black mt-1 uppercase">Bus</p></div>
-                <div onclick="alert('Train Service Ready')" class="glass py-4 cursor-pointer active:scale-95"><i class="fa-solid fa-train text-[#FF9933]"></i><p class="text-[8px] font-black mt-1 uppercase">Train</p></div>
-                <div onclick="alert('Hotel Service Ready')" class="glass py-4 cursor-pointer active:scale-95"><i class="fa-solid fa-hotel text-[#138808]"></i><p class="text-[8px] font-black mt-1 uppercase">Hotel</p></div>
-            </div>
-        </div>
-
-        <div class="glass p-6 mb-10">
-            <h3 class="text-[#000080] font-black italic text-sm mb-4 uppercase text-center tracking-widest">Latest Transactions</h3>
-            <div id="txList" class="space-y-2 text-black">
-                <p class="text-[9px] text-center opacity-30 italic">No transactions found on Arc Network</p>
+                <div class="glass py-4"><i class="fa-solid fa-mobile-screen text-[#FF9933]"></i><p class="text-[7px] font-black mt-1">MOBILE</p></div>
+                <div class="glass py-4"><i class="fa-solid fa-lightbulb text-[#138808]"></i><p class="text-[7px] font-black mt-1">ELECTRIC</p></div>
+                <div class="glass py-4"><i class="fa-solid fa-tv text-[#FF9933]"></i><p class="text-[7px] font-black mt-1">DTH</p></div>
+                <div class="glass py-4"><i class="fa-solid fa-wifi text-[#138808]"></i><p class="text-[7px] font-black mt-1">WIFI</p></div>
             </div>
         </div>
     </div>
 
-    <div id="receiveModal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-6 z-[300]">
-        <div class="glass p-8 w-full max-w-sm text-center" style="background: white;">
-            <div id="qrcode" class="flex justify-center mb-4"></div>
-            <p id="myAddr" class="text-[9px] font-mono break-all mb-4 text-black"></p>
-            <button onclick="closeModal('receiveModal')" class="w-full bg-[#000080] text-white py-3 rounded-xl font-bold">CLOSE</button>
+    <div id="sendModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-6 z-[500] backdrop-blur-sm">
+        <div class="bg-white rounded-[32px] p-8 w-full max-w-sm shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-[#121271] font-black italic text-xl uppercase">Send Money</h3>
+                <button onclick="closeModal('sendModal')" class="text-2xl text-gray-300 hover:text-red-500 transition-all">&times;</button>
+            </div>
+            <div class="space-y-4">
+                <input type="text" id="sendTo" placeholder="Recipient Address (0x...)" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-[11px] font-mono focus:ring-2 focus:ring-[#FF9933]">
+                <input type="number" id="sendAmt" placeholder="Amount USDC" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-2xl font-black italic focus:ring-2 focus:ring-[#138808]">
+                <input type="text" id="sendPurpose" placeholder="Add a note (Purpose)" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold">
+            </div>
+            <button id="finalSendBtn" onclick="processSend()" class="w-full bg-[#121271] text-white py-5 rounded-2xl font-black text-lg uppercase italic tracking-widest mt-8 shadow-xl shadow-blue-900/20 active:scale-95 transition-all">Confirm Payment</button>
         </div>
     </div>
 
+    <div id="receiveModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-6 z-[500] backdrop-blur-sm">
+        <div class="bg-white rounded-[32px] p-8 w-full max-w-sm text-center shadow-2xl">
+            <h3 class="text-[#121271] font-black italic text-xl uppercase mb-6">Your QR Code</h3>
+            <div id="qrcode" class="flex justify-center mb-6 p-4 bg-gray-50 rounded-3xl inline-block mx-auto"></div>
+            <p id="myAddr" class="text-[9px] font-mono bg-gray-100 p-4 rounded-xl break-all mb-6 text-gray-500"></p>
+            <div class="flex gap-2">
+                <button onclick="copyAddr()" class="flex-1 bg-[#121271] text-white py-4 rounded-2xl font-bold uppercase text-xs">Copy</button>
+                <button onclick="closeModal('receiveModal')" class="flex-1 bg-gray-100 text-gray-400 py-4 rounded-2xl font-bold uppercase text-xs">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="scanModal" class="fixed inset-0 bg-black hidden flex items-center justify-center z-[600]">
+        <video id="scanVideo" class="w-full h-full object-cover"></video>
+        <div class="absolute inset-0 border-[40px] border-black/40 flex items-center justify-center">
+            <div class="w-64 h-64 border-2 border-white/50 rounded-3xl relative">
+                <div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#FF9933] rounded-tl-lg"></div>
+                <div class="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-[#FF9933] rounded-tr-lg"></div>
+                <div class="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-[#138808] rounded-bl-lg"></div>
+                <div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-[#138808] rounded-br-lg"></div>
+            </div>
+        </div>
+        <button onclick="closeModal('scanModal')" class="absolute top-10 right-10 bg-white/20 p-4 rounded-full text-white text-2xl backdrop-blur-md">&times;</button>
+    </div>
+
+    <div id="historyModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-6 z-[500] backdrop-blur-sm">
+        <div class="bg-white rounded-[32px] p-8 w-full max-w-sm shadow-2xl h-[80vh] flex flex-col">
+            <h3 class="text-[#121271] font-black italic text-xl uppercase mb-6">History</h3>
+            <div id="txList" class="flex-1 overflow-y-auto space-y-3 pr-2 text-black">
+                <p class="text-[10px] text-center opacity-20 italic">Loading transactions...</p>
+            </div>
+            <button onclick="closeModal('historyModal')" class="w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-bold uppercase text-xs mt-4">Back</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script src="app.js"></script>
 </body>
 </html>
