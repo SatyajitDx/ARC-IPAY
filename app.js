@@ -144,35 +144,40 @@ async function processSend() {
     const inputVal = document.getElementById("sendAmt").value;
     const btn = document.getElementById("finalSendBtn");
 
-    if(!target || !inputVal) return alert("Details bharo bhai!");
+    if(!target || !inputVal) return alert("Bhai details bharo!");
 
     try {
-        btn.innerText = "PROCESSING..."; btn.disabled = true;
+        btn.innerText = "PROCESSING..."; 
+        btn.disabled = true;
+
         let finalDest = currentService === "DIRECT" ? target : MERCHANT_ADDRESS;
         let usdcAmount = currentService === "DIRECT" ? inputVal : (inputVal / INR_RATE).toFixed(6);
 
-        // Fix MetaMask "Unknown"
+        // --- FIX: ABI Complete ki taaki MetaMask Unknown na bole ---
         const contract = new ethers.Contract(USDC_ADDR, [
-            "function transfer(address to, uint256 value) returns (bool)"
+            "function transfer(address to, uint256 value) public returns (bool)",
+            "function decimals() view returns (uint8)",
+            "function symbol() view returns (string)"
         ], signer);
 
-        const baseFee = ethers.utils.parseUnits("20", "gwei"); 
+        // --- FIX: Arc Official Gas Policy (20 Gwei Minimum) ---
+        const minBaseFee = ethers.utils.parseUnits("20", "gwei"); 
         const priorityFee = ethers.utils.parseUnits("5", "gwei"); 
 
         const tx = await contract.transfer(
             finalDest, 
-            ethers.utils.parseUnits(usdcAmount.toString(), 6),
+            ethers.utils.parseUnits(usdcAmount.toString(), 6), // App transfer is 6 decimals
             {
-                maxFeePerGas: baseFee.add(priorityFee),
+                maxFeePerGas: minBaseFee.add(priorityFee), 
                 maxPriorityFeePerGas: priorityFee,
                 gasLimit: 120000 
             }
         );
 
-        // Real confirmation wait
-        btn.innerText = "CONFIRMING...";
+        // Status change jab MetaMask popup hat jaye
+        btn.innerText = "VERIFYING..."; 
         
-        const receipt = await tx.wait(1); 
+        const receipt = await tx.wait(1); // Wait for Arc network to confirm
 
         if(receipt.status === 1) {
             document.getElementById("sendModal").classList.add("hidden");
@@ -183,19 +188,24 @@ async function processSend() {
         }
 
     } catch (e) {
-        console.error(e);
-        document.getElementById("sendModal").classList.add("hidden");
-        document.getElementById("failModal").classList.remove("hidden");
-        document.getElementById("failReason").innerText = e.message.includes("txpool") 
-            ? "Network Busy. Try again!" : "Transaction Failed or Denied";
+        console.error("TX ERROR:", e);
+        if (e.code === 4001) {
+            alert("Payment Cancelled");
+        } else {
+            document.getElementById("sendModal").classList.add("hidden");
+            document.getElementById("failModal").classList.remove("hidden");
+            document.getElementById("failReason").innerText = "Network Busy or Insufficient Fees. Try again!";
+        }
     } finally {
-        btn.innerText = "Confirm Payment"; btn.disabled = false;
+        btn.innerText = "Confirm Payment"; 
+        btn.disabled = false;
     }
 }
 
 // --- UTILS ---
 function fetchBalance() {
     if(!userAddress) return;
+    // Native gas is 18 decimals, but ERC20 display is 6 decimals
     const contract = new ethers.Contract(USDC_ADDR, ["function balanceOf(address) view returns (uint256)"], provider);
     contract.balanceOf(userAddress).then(bal => {
         const f = ethers.utils.formatUnits(bal, 6);
@@ -226,7 +236,7 @@ function closeModal(id) {
     if(id === 'scanModal' && codeReader) codeReader.reset();
 }
 
-function copyAddr() { navigator.clipboard.writeText(userAddress); alert("Copied!"); }
+function copyAddr() { navigator.clipboard.writeText(userAddress); alert("Address Copied!"); }
 function toggleProfile() { if(!userAddress) connectWallet(); else document.getElementById("profileMenu").classList.toggle("show"); }
 function disconnectWallet() { localStorage.removeItem("isWalletConnected"); location.reload(); }
 
@@ -245,7 +255,7 @@ async function openHistory() {
     const list = document.getElementById("txList");
     modal.classList.remove("hidden");
     
-    list.innerHTML = `<div class="flex flex-col items-center justify-center py-10 opacity-30"><i class="fa-solid fa-circle-notch animate-spin text-2xl mb-2 text-[#121271]"></i><p class="text-[10px] font-black uppercase tracking-widest text-[#121271]">Fetching Logs...</p></div>`;
+    list.innerHTML = `<div class="flex flex-col items-center justify-center py-10 opacity-30"><i class="fa-solid fa-circle-notch animate-spin text-2xl mb-2 text-[#121271]"></i><p class="text-[10px] font-black uppercase tracking-widest text-[#121271]">Scanning Chain...</p></div>`;
     
     try {
         const contract = new ethers.Contract(USDC_ADDR, [
@@ -271,12 +281,12 @@ async function openHistory() {
                     </div>
                 </div>
                 <div class="mt-2 pt-2 border-t border-dashed border-gray-200 flex justify-between items-center">
-                    <p class="text-[7px] font-bold opacity-20 uppercase tracking-widest text-[#121271]">Verified</p>
+                    <p class="text-[7px] font-bold opacity-20 uppercase tracking-widest text-[#121271]">Arc Chain Verified</p>
                     <a href="https://testnet.arcscan.app/tx/${l.transactionHash}" target="_blank" class="text-[7px] font-black text-blue-600 underline uppercase italic">View on Scan</a>
                 </div>
             </div>`;
         }).join('');
-    } catch (e) { list.innerHTML = `<p class="text-center text-red-500 font-bold uppercase text-[10px] mt-10">Blockchain Busy</p>`; }
+    } catch (e) { list.innerHTML = `<p class="text-center text-red-500 font-bold uppercase text-[10px] mt-10">Blockchain Busy. Reloading.</p>`; }
 }
 
 function updateAmountFromPlan(selectElement) {
