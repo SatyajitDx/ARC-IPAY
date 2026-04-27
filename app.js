@@ -18,7 +18,6 @@ window.addEventListener('load', async () => {
 // --- WALLET CORE ---
 async function connectWallet() {
     if (!window.ethereum) {
-        // MOBILE FIX: MetaMask App link if not found
         window.location.href = "https://metamask.app.link/dapp/" + window.location.href.replace(/https?:\/\//, "");
         return;
     }
@@ -148,55 +147,55 @@ async function processSend() {
     const inputVal = document.getElementById("sendAmt").value;
     const btn = document.getElementById("finalSendBtn");
 
-    if(!target || !inputVal) return alert("Details bharo bhai!");
+    if(!target || !inputVal || inputVal <= 0) return alert("Sahi details dalo bhai!");
 
     try {
-        btn.innerText = "PROCESSING..."; btn.disabled = true;
+        btn.innerText = "PROCESSING..."; 
+        btn.disabled = true;
+
         let finalDest = currentService === "DIRECT" ? target : MERCHANT_ADDRESS;
         let usdcAmount = currentService === "DIRECT" ? inputVal : (inputVal / INR_RATE).toFixed(6);
 
-        // Detailed ABI for Metadata
+        // Minimal ABI for direct transfer recognition
         const contract = new ethers.Contract(USDC_ADDR, [
-            "function transfer(address to, uint256 value) public returns (bool)",
-            "function symbol() view returns (string)",
-            "function decimals() view returns (uint8)"
+            "function transfer(address to, uint256 value) public returns (bool)"
         ], signer);
 
-        const minBaseFee = ethers.utils.parseUnits("20", "gwei"); 
-        const priorityFee = ethers.utils.parseUnits("2", "gwei"); 
+        // Fixed GasPrice for fast mining on Arc
+        const gasPrice = ethers.utils.parseUnits("22", "gwei"); 
 
         const tx = await contract.transfer(
             finalDest, 
             ethers.utils.parseUnits(usdcAmount.toString(), 6),
             {
-                maxFeePerGas: minBaseFee.add(priorityFee),
-                maxPriorityFeePerGas: priorityFee,
-                gasLimit: 120000 
+                gasPrice: gasPrice,
+                gasLimit: 100000 
             }
         );
 
         btn.innerText = "VERIFYING...";
-        const receipt = await tx.wait(1); 
+        const receipt = await tx.wait(); 
 
         if(receipt.status === 1) {
             document.getElementById("sendModal").classList.add("hidden");
             document.getElementById("receiptModal").classList.remove("hidden");
             
-            // --- FIX: INR Calculation for Receipt ---
+            // Fix INR display on Receipt
             const finalInr = (usdcAmount * INR_RATE).toFixed(2);
             document.getElementById("recAmt").innerText = `${usdcAmount} USDC`;
             document.getElementById("recInr").innerText = `≈ ₹${finalInr}`; 
             
-            document.getElementById("recTo").innerText = `Ref: ${target.substring(0,8)}...`;
+            document.getElementById("recTo").innerText = `Ref: ${tx.hash.substring(0,10)}...`;
             fetchBalance();
         }
 
     } catch (e) {
         console.error("TX ERROR:", e);
-        alert("Transaction Failed: " + (e.reason || "Check Balance/Network"));
+        alert(e.code === 4001 ? "Transaction Cancelled" : "Failed. Check balance/gas.");
         document.getElementById("sendModal").classList.add("hidden");
     } finally {
-        btn.innerText = "Confirm Payment"; btn.disabled = false;
+        btn.innerText = "Confirm Payment"; 
+        btn.disabled = false;
     }
 }
 
@@ -207,7 +206,7 @@ function fetchBalance() {
     contract.balanceOf(userAddress).then(bal => {
         const f = ethers.utils.formatUnits(bal, 6);
         document.getElementById("usdcBal").innerText = parseFloat(f).toFixed(2);
-        document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN', {maximumFractionDigits: 2});
+        document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN');
     });
 }
 
