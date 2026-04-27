@@ -147,7 +147,7 @@ async function processSend() {
     const inputVal = document.getElementById("sendAmt").value;
     const btn = document.getElementById("finalSendBtn");
 
-    if(!target || !inputVal || inputVal <= 0) return alert("Sahi details dalo bhai!");
+    if(!target || !inputVal || inputVal <= 0) return alert("Please enter valid details!");
 
     try {
         btn.innerText = "PROCESSING..."; 
