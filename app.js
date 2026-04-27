@@ -264,7 +264,7 @@ async function openHistory() {
             return `<div class="bg-gray-50 p-4 rounded-3xl mb-3 border border-gray-100 shadow-sm">
                 <div class="flex justify-between">
                     <div>
-                        <p class="text-[9px] font-black text-red-500 italic uppercase">Sent Success</p>
+                        <p class="text-[9px] font-black text-red-500 italic uppercase tracking-tighter">Sent Success</p>
                         <p class="text-[8px] truncate w-32 opacity-40 font-mono">To: ${l.args.to}</p>
                     </div>
                     <div class="text-right">
