@@ -1,184 +1,291 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-    <title>ARC INDIPAY - WEB3 OFFICIAL</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-    <style>
-        body { 
-            background: linear-gradient(160deg, #FF9933 0%, #FFFFFF 50%, #138808 100%) !important; 
-            min-height: 100vh; 
-            font-family: sans-serif; 
-            margin: 0; 
-            overflow-x: hidden; 
+// --- CONFIGURATION ---
+const USDC_ADDR = "0x3600000000000000000000000000000000000000"; 
+const MERCHANT_ADDRESS = "0x7a67f9b3BB918182Ad94182aC10f80F9619be81C"; 
+const ARC_CHAIN_ID = '0x4cef52'; 
+const RPC_URL = 'https://rpc.testnet.arc.network';
+const INR_RATE = 94.25; 
+
+let userAddress = "", provider, signer, codeReader, currentService = "DIRECT";
+
+// --- INITIALIZE ON LOAD ---
+window.addEventListener('load', async () => {
+    if (window.ethereum && localStorage.getItem("isWalletConnected") === "true") {
+        const accounts = await window.ethereum.request({ method: "eth_accounts" });
+        if (accounts.length > 0) setupWallet(accounts[0]);
+    }
+});
+
+// --- WALLET CORE ---
+async function connectWallet() {
+    if (!window.ethereum) return alert("Install MetaMask!");
+    try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        await window.ethereum.request({ 
+            method: 'wallet_switchEthereumChain', 
+            params: [{ chainId: ARC_CHAIN_ID }] 
+        }).catch(async (e) => {
+            if (e.code === 4902) {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: ARC_CHAIN_ID,
+                        chainName: 'Arc Testnet',
+                        rpcUrls: [RPC_URL],
+                        nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+                        blockExplorerUrls: ['https://testnet.arcscan.app']
+                    }]
+                });
+            }
+        });
+        setupWallet(accounts[0]);
+    } catch (e) { console.error(e); }
+}
+
+function setupWallet(addr) {
+    userAddress = addr;
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    signer = provider.getSigner();
+    document.getElementById("dot").className = "bg-green-500 w-2 h-2 rounded-full";
+    document.getElementById("walletLabel").innerText = addr.substring(0, 6) + "..." + addr.slice(-4).toUpperCase();
+    localStorage.setItem("isWalletConnected", "true");
+    fetchBalance();
+}
+
+// --- DYNAMIC BILLING LOGIC ---
+function openBilling(serviceType) {
+    if(!userAddress) return connectWallet();
+    currentService = serviceType.toUpperCase();
+    
+    const modal = document.getElementById("sendModal");
+    const label = document.getElementById("inputLabel");
+    const input = document.getElementById("sendTo");
+    const billingFields = document.getElementById("billingFields");
+    const noteBox = document.getElementById("sendPurpose");
+
+    modal.classList.remove("hidden");
+    modal.querySelector('h3').innerText = currentService === 'ELECTRIC' ? 'ELECTRICITY BILL' : `${currentService} RECHARGE`;
+    
+    if(noteBox) noteBox.classList.add("hidden");
+    billingFields.innerHTML = ""; 
+
+    if(currentService === 'MOBILE') {
+        label.innerText = "Mobile Number";
+        input.placeholder = "Enter 10 digit number";
+        input.classList.remove("font-mono");
+        
+        billingFields.innerHTML = `
+            <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Operator</label>
+            <select class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold mb-4">
+                <option>JIO Prepaid</option><option>Airtel Prepaid</option><option>VI Prepaid</option><option>BSNL</option>
+            </select>
+            <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Select Plan</label>
+            <select id="planSelect" onchange="updateAmountFromPlan(this)" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold mb-4">
+                <option value="0">Choose a Plan</option>
+                <option value="299">Unlimited Pack ₹299</option>
+                <option value="19">Data Booster ₹19</option>
+                <option value="155">Validity Pack ₹155</option>
+                <option value="666">Premium Pack ₹666</option>
+            </select>
+        `;
+    } else {
+        label.innerText = currentService === 'ELECTRIC' ? "Consumer Number" : "Consumer ID / Account No";
+        input.placeholder = `Enter your ${currentService} ID`;
+        input.classList.remove("font-mono");
+        
+        let billerOptions = "";
+        if(currentService === 'ELECTRIC') {
+            billerOptions = `<option>Adani Electricity</option><option>Tata Power</option><option>MSEDCL</option><option>UPPCL</option>`;
+        } else if(currentService === 'DTH') {
+            billerOptions = `<option>Tata Play</option><option>Airtel Digital TV</option><option>Dish TV</option>`;
+        } else if(currentService === 'WIFI') {
+            billerOptions = `<option>Airtel Xstream</option><option>Jio Fiber</option><option>ACT Fibernet</option>`;
         }
-        .app-container { max-width: 480px; margin: 0 auto; padding: 20px; }
-        .glass { 
-            background: rgba(255, 255, 255, 0.5); 
-            backdrop-filter: blur(15px); 
-            border: 1px solid rgba(255,255,255,0.3); 
-            border-radius: 28px; 
+
+        billingFields.innerHTML = `
+            <label class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Select Provider</label>
+            <select class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold mb-4">
+                ${billerOptions}
+            </select>
+        `;
+    }
+    document.getElementById("sendAmt").value = "";
+    document.getElementById("inrCalcDisplay").innerText = "≈ (0.00 USDC)";
+}
+
+function openSend() {
+    if(!userAddress) return connectWallet();
+    currentService = "DIRECT";
+    document.getElementById("sendModal").classList.remove("hidden");
+    document.getElementById("sendModal").querySelector('h3').innerText = "SEND USDC";
+    document.getElementById("inputLabel").innerText = "Recipient Address";
+    document.getElementById("sendTo").placeholder = "0x...";
+    document.getElementById("sendTo").classList.add("font-mono");
+    document.getElementById("billingFields").innerHTML = "";
+    
+    const noteBox = document.getElementById("sendPurpose");
+    if(noteBox) noteBox.classList.remove("hidden");
+}
+
+// --- CALCULATION & PAYMENT ---
+function updateInrCalc() {
+    const val = document.getElementById("sendAmt").value;
+    const display = document.getElementById("inrCalcDisplay");
+    if (val > 0) {
+        if (currentService === "DIRECT") {
+            display.innerText = `≈ (₹${(val * INR_RATE).toFixed(2)})`;
+        } else {
+            display.innerText = `≈ (${(val / INR_RATE).toFixed(4)} USDC)`;
         }
-        .dropdown-menu { 
-            display: none; 
-            position: absolute; 
-            right: 0; 
-            top: 45px; 
-            background: white; 
-            min-width: 160px; 
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
-            border-radius: 12px; 
-            z-index: 1000; 
-            overflow: hidden; 
+    } else { display.innerText = "≈ (₹0.00)"; }
+}
+
+async function processSend() {
+    const target = document.getElementById("sendTo").value;
+    const inputVal = document.getElementById("sendAmt").value;
+    const btn = document.getElementById("finalSendBtn");
+
+    if(!target || !inputVal) return alert("Details bharo bhai!");
+
+    try {
+        btn.innerText = "PROCESSING..."; btn.disabled = true;
+        let finalDest = currentService === "DIRECT" ? target : MERCHANT_ADDRESS;
+        let usdcAmount = currentService === "DIRECT" ? inputVal : (inputVal / INR_RATE).toFixed(6);
+
+        // --- FIX 1: Complete ABI for MetaMask Recognition ---
+        const contract = new ethers.Contract(USDC_ADDR, [
+            "function transfer(address to, uint256 value) public returns (bool)",
+            "function symbol() view returns (string)",
+            "function decimals() view returns (uint8)"
+        ], signer);
+
+        // --- FIX 2: Official Arc Testnet Gas (Min 20 Gwei) ---
+        const minBaseFee = ethers.utils.parseUnits("20", "gwei"); 
+        const priorityFee = ethers.utils.parseUnits("2", "gwei"); 
+
+        const tx = await contract.transfer(
+            finalDest, 
+            ethers.utils.parseUnits(usdcAmount.toString(), 6),
+            {
+                maxFeePerGas: minBaseFee.add(priorityFee),
+                maxPriorityFeePerGas: priorityFee,
+                gasLimit: 120000 
+            }
+        );
+
+        // Status change after MetaMask confirmation
+        btn.innerText = "VERIFYING...";
+        
+        const receipt = await tx.wait(1); 
+
+        if(receipt.status === 1) {
+            document.getElementById("sendModal").classList.add("hidden");
+            document.getElementById("receiptModal").classList.remove("hidden");
+            document.getElementById("recAmt").innerText = currentService === "DIRECT" ? `${usdcAmount} USDC` : `₹${inputVal}`;
+            document.getElementById("recTo").innerText = `Ref: ${target.substring(0,8)}...`;
+            fetchBalance();
         }
-        .show { display: block !important; }
-        .hidden { display: none !important; }
-        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    </style>
-</head>
-<body>
-    <div class="app-container">
-        <div class="flex justify-between items-center mb-8">
-            <div class="flex items-center gap-3 bg-white p-2 px-4 rounded-full shadow-md border border-gray-100">
-                <div class="flex items-center gap-1 font-black italic text-lg uppercase tracking-tighter">
-                    <span style="color: #FF9933;">Arc</span> 
-                    <span style="color: #121271;">Indi</span>
-                    <span style="color: #138808;">Pay</span>
-                </div>
-                <div class="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-gray-50">
-                    <img src="logo.png" class="w-full h-full object-contain" alt="logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/6001/6001527.png'">
-                </div>
-            </div>
-            
-            <div class="relative">
-                <button id="walletBtn" onclick="toggleProfile()" class="glass py-2 px-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-tighter">
-                    <span id="dot" class="bg-red-500 w-2 h-2 rounded-full animate-pulse"></span>
-                    <span id="walletLabel">Connect Wallet</span>
-                </button>
-                <div id="profileMenu" class="dropdown-menu">
-                    <button onclick="copyAddr()" class="w-full text-left px-4 py-3 border-b hover:bg-gray-50 font-bold text-xs">Copy Address</button>
-                    <button onclick="disconnectWallet()" class="w-full text-left px-4 py-3 text-red-500 hover:bg-red-50 font-bold text-xs">Disconnect</button>
-                </div>
-            </div>
-        </div>
 
-        <div class="glass p-8 mb-8 text-center shadow-xl">
-            <p class="text-[10px] opacity-60 mb-1 uppercase font-bold tracking-widest">Arc Network (Testnet)</p>
-            <h1 class="text-5xl font-black italic text-black"><span id="usdcBal">0.00</span> <span class="text-2xl opacity-40">USDC</span></h1>
-            <p class="text-xl font-bold mt-1 text-[#121271]">≈ ₹<span id="inrBal">0.00</span></p>
-        </div>
+    } catch (e) {
+        console.error("TX ERROR:", e);
+        document.getElementById("sendModal").classList.add("hidden");
+        document.getElementById("failModal").classList.remove("hidden");
+        document.getElementById("failReason").innerText = e.code === 4001 ? "Payment Cancelled" : "Chain Busy. Try Again.";
+    } finally {
+        btn.innerText = "Confirm Payment"; btn.disabled = false;
+    }
+}
 
-        <div class="grid grid-cols-2 gap-4 mb-4">
-            <div onclick="openSend()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
-                <i class="fa-solid fa-paper-plane text-3xl mb-3 text-[#FF9933]"></i>
-                <p class="text-xs font-black uppercase italic">Send</p>
-            </div>
-            <div onclick="openReceive()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
-                <i class="fa-solid fa-qrcode text-3xl mb-3 text-[#121271]"></i>
-                <p class="text-xs font-black uppercase italic">Receive</p>
-            </div>
-        </div>
-        <div class="grid grid-cols-2 gap-4 mb-8">
-            <div onclick="openScan()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
-                <i class="fa-solid fa-expand text-3xl mb-3 text-[#138808]"></i>
-                <p class="text-xs font-black uppercase italic">Scan & Pay</p>
-            </div>
-            <div onclick="openHistory()" class="glass p-8 text-center cursor-pointer active:scale-95 transition-all">
-                <i class="fa-solid fa-clock-rotate-left text-3xl mb-3 opacity-40"></i>
-                <p class="text-xs font-black uppercase italic">History</p>
-            </div>
-        </div>
+// --- UTILS ---
+function fetchBalance() {
+    if(!userAddress) return;
+    const contract = new ethers.Contract(USDC_ADDR, ["function balanceOf(address) view returns (uint256)"], provider);
+    contract.balanceOf(userAddress).then(bal => {
+        const f = ethers.utils.formatUnits(bal, 6);
+        document.getElementById("usdcBal").innerText = parseFloat(f).toFixed(2);
+        document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN');
+    });
+}
 
-        <div class="glass p-6 mb-6">
-            <h3 class="text-[#121271] font-black italic text-sm mb-5 uppercase text-center tracking-widest">Bills & Recharges</h3>
-            <div class="grid grid-cols-4 gap-2 text-center">
-                <div onclick="openBilling('Mobile')" class="glass py-4 cursor-pointer active:scale-95 transition-all"><i class="fa-solid fa-mobile-screen text-[#FF9933]"></i><p class="text-[7px] font-black mt-1">MOBILE</p></div>
-                <div onclick="openBilling('Electric')" class="glass py-4 cursor-pointer active:scale-95 transition-all"><i class="fa-solid fa-lightbulb text-[#138808]"></i><p class="text-[7px] font-black mt-1">ELECTRIC</p></div>
-                <div onclick="openBilling('DTH')" class="glass py-4 cursor-pointer active:scale-95 transition-all"><i class="fa-solid fa-tv text-[#FF9933]"></i><p class="text-[7px] font-black mt-1">DTH</p></div>
-                <div onclick="openBilling('WiFi')" class="glass py-4 cursor-pointer active:scale-95 transition-all"><i class="fa-solid fa-wifi text-[#138808]"></i><p class="text-[7px] font-black mt-1">WIFI</p></div>
-            </div>
-        </div>
-    </div>
+async function openScan() {
+    if(!userAddress) return connectWallet();
+    document.getElementById("scanModal").classList.remove("hidden");
+    codeReader = new ZXing.BrowserQRCodeReader();
+    const videoElem = document.getElementById("scanVideo");
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        videoElem.srcObject = stream;
+        videoElem.play();
+        const result = await codeReader.decodeFromVideoElement(videoElem);
+        if(ethers.utils.isAddress(result.text)) {
+            closeModal('scanModal'); openSend();
+            document.getElementById("sendTo").value = result.text;
+        }
+    } catch (e) { console.error(e); closeModal('scanModal'); }
+}
 
-    <div id="sendModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-6 z-[500] backdrop-blur-sm">
-        <div class="bg-white rounded-[32px] p-8 w-full max-w-sm shadow-2xl">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-[#121271] font-black italic text-xl uppercase">Send Money</h3>
-                <button onclick="closeModal('sendModal')" class="text-2xl text-gray-300 hover:text-red-500 transition-all font-bold">&times;</button>
-            </div>
-            <div class="space-y-4">
-                <div>
-                    <label id="inputLabel" class="text-[9px] font-black uppercase text-[#FF9933] ml-2 mb-1 block">Recipient Address</label>
-                    <input type="text" id="sendTo" placeholder="0x..." class="w-full p-4 bg-gray-50 rounded-2xl border-none text-[11px] font-mono focus:ring-2 focus:ring-[#FF9933]">
-                    <div id="billingFields" class="mt-4 text-left"></div>
-                </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-[#138808] ml-2 mb-1 block">Amount</label>
-                    <div class="relative flex flex-col">
-                        <input type="number" id="sendAmt" oninput="updateInrCalc()" placeholder="0.00" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-2xl font-black italic focus:ring-2 focus:ring-[#138808]">
-                        <p id="inrCalcDisplay" class="text-[10px] font-bold text-[#121271] mt-2 ml-2 opacity-80">≈ (₹0.00)</p>
+function closeModal(id) { 
+    document.getElementById(id).classList.add("hidden"); 
+    if(id === 'scanModal' && codeReader) codeReader.reset();
+}
+
+function copyAddr() { navigator.clipboard.writeText(userAddress); alert("Copied!"); }
+function toggleProfile() { if(!userAddress) connectWallet(); else document.getElementById("profileMenu").classList.toggle("show"); }
+function disconnectWallet() { localStorage.removeItem("isWalletConnected"); location.reload(); }
+
+function openReceive() {
+    if(!userAddress) return connectWallet();
+    document.getElementById("receiveModal").classList.remove("hidden");
+    const qrDiv = document.getElementById("qrcode");
+    qrDiv.innerHTML = ""; 
+    document.getElementById("myAddr").innerText = userAddress;
+    new QRCode(qrDiv, { text: userAddress, width: 180, height: 180, colorDark : "#121271", colorLight : "#ffffff" });
+}
+
+async function openHistory() {
+    if (!userAddress) return connectWallet();
+    const modal = document.getElementById("historyModal");
+    const list = document.getElementById("txList");
+    modal.classList.remove("hidden");
+    
+    list.innerHTML = `<div class="flex flex-col items-center justify-center py-10 opacity-30"><i class="fa-solid fa-circle-notch animate-spin text-2xl mb-2 text-[#121271]"></i><p class="text-[10px] font-black uppercase tracking-widest text-[#121271]">Scanning Chain...</p></div>`;
+    
+    try {
+        const contract = new ethers.Contract(USDC_ADDR, [
+            "event Transfer(address indexed from, address indexed to, uint256 value)"
+        ], provider);
+
+        const filter = contract.filters.Transfer(userAddress, null);
+        const logs = await contract.queryFilter(filter, -5000, "latest");
+        
+        if (logs.length === 0) { list.innerHTML = `<p class="text-center opacity-20 mt-10">No History Found</p>`; return; }
+        
+        list.innerHTML = logs.reverse().slice(0, 15).map(l => {
+            const amt = ethers.utils.formatUnits(l.args.value, 6);
+            return `<div class="bg-gray-50 p-4 rounded-3xl mb-3 border border-gray-100 shadow-sm">
+                <div class="flex justify-between">
+                    <div>
+                        <p class="text-[9px] font-black text-red-500 italic uppercase tracking-tighter">Sent Success</p>
+                        <p class="text-[8px] truncate w-32 opacity-40 font-mono">To: ${l.args.to}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-black italic text-[#121271]">₹${(amt * INR_RATE).toFixed(2)}</p>
+                        <p class="text-[8px] opacity-20 font-bold">${amt} USDC</p>
                     </div>
                 </div>
-                <input type="text" id="sendPurpose" placeholder="Add a note (Purpose)" class="w-full p-4 bg-gray-50 rounded-2xl border-none text-xs font-bold">
-            </div>
-            <button id="finalSendBtn" onclick="processSend()" class="w-full bg-[#121271] text-white py-5 rounded-2xl font-black text-lg uppercase italic tracking-widest mt-8 shadow-xl shadow-blue-900/20 active:scale-95 transition-all">Confirm Payment</button>
-        </div>
-    </div>
+                <div class="mt-2 pt-2 border-t border-dashed border-gray-200 flex justify-between items-center">
+                    <p class="text-[7px] font-bold opacity-20 uppercase tracking-widest text-[#121271]">Verified Log</p>
+                    <a href="https://testnet.arcscan.app/tx/${l.transactionHash}" target="_blank" class="text-[7px] font-black text-blue-600 underline uppercase italic">View on Scan</a>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) { list.innerHTML = `<p class="text-center text-red-500 font-bold uppercase text-[10px] mt-10">Node Busy</p>`; }
+}
 
-    <div id="receiveModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-6 z-[500] backdrop-blur-sm">
-        <div class="bg-white rounded-[32px] p-8 w-full max-w-sm text-center shadow-2xl">
-            <h3 class="text-[#121271] font-black italic text-xl uppercase mb-6">Receive Payment</h3>
-            <div id="qrcode" class="flex justify-center mb-6 p-4 bg-gray-50 rounded-3xl inline-block mx-auto border border-gray-100"></div>
-            <p id="myAddr" class="text-[9px] font-mono bg-gray-100 p-4 rounded-xl break-all mb-6 text-gray-500 border border-gray-200"></p>
-            <div class="flex gap-2">
-                <button onclick="copyAddr()" class="flex-1 bg-[#121271] text-white py-4 rounded-2xl font-bold uppercase text-xs">Copy Address</button>
-                <button onclick="closeModal('receiveModal')" class="flex-1 bg-gray-100 text-gray-400 py-4 rounded-2xl font-bold uppercase text-xs">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="scanModal" class="fixed inset-0 bg-black hidden flex items-center justify-center z-[600]">
-        <video id="scanVideo" class="w-full h-full object-cover"></video>
-        <button onclick="closeModal('scanModal')" class="absolute top-10 right-10 bg-white/20 p-4 rounded-full text-white text-2xl backdrop-blur-md">&times;</button>
-    </div>
-
-    <div id="historyModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-6 z-[500] backdrop-blur-sm">
-        <div class="bg-white rounded-[32px] p-8 w-full max-w-sm shadow-2xl h-[80vh] flex flex-col">
-            <h3 class="text-[#121271] font-black italic text-xl uppercase mb-4">History</h3>
-            <div id="txList" class="flex-1 overflow-y-auto space-y-3"></div>
-            <button onclick="closeModal('historyModal')" class="w-full bg-gray-100 py-4 rounded-2xl font-bold mt-4">Close</button>
-        </div>
-    </div>
-
-    <div id="receiptModal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-6 z-[600] backdrop-blur-md">
-        <div class="bg-white rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl">
-            <div class="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i class="fa-solid fa-check text-4xl text-white"></i>
-            </div>
-            <h2 class="font-black text-2xl uppercase mb-2">Success</h2>
-            <h3 class="text-4xl font-black text-[#121271]" id="recAmt">0.00</h3>
-            <p class="text-gray-500 mb-6" id="recInr">₹0.00</p>
-            <p class="text-[10px] break-all opacity-50 mb-6" id="recTo"></p>
-            <button onclick="location.reload()" class="w-full bg-black text-white py-4 rounded-2xl font-black uppercase">Done</button>
-        </div>
-    </div>
-
-    <div id="failModal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-6 z-[600] backdrop-blur-md">
-        <div class="bg-white rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl">
-            <div class="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i class="fa-solid fa-xmark text-4xl text-white"></i>
-            </div>
-            <h2 class="font-black text-2xl uppercase mb-4">Failed</h2>
-            <p id="failReason" class="text-sm mb-8"></p>
-            <button onclick="closeModal('failModal')" class="w-full bg-black text-white py-4 rounded-2xl font-black uppercase">Try Again</button>
-        </div>
-    </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="https://unpkg.com/@zxing/library@latest"></script>
-    <script src="app.js"></script>
-</body>
-</html>
+function updateAmountFromPlan(selectElement) {
+    const amount = selectElement.value;
+    const amountInput = document.getElementById("sendAmt");
+    if(amount > 0) {
+        amountInput.value = amount;
+        updateInrCalc();
+    }
+}
