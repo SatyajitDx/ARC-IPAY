@@ -144,40 +144,38 @@ async function processSend() {
     const inputVal = document.getElementById("sendAmt").value;
     const btn = document.getElementById("finalSendBtn");
 
-    if(!target || !inputVal) return alert("Bhai details bharo!");
+    if(!target || !inputVal) return alert("Details bharo bhai!");
 
     try {
-        btn.innerText = "PROCESSING..."; 
-        btn.disabled = true;
-
+        btn.innerText = "PROCESSING..."; btn.disabled = true;
         let finalDest = currentService === "DIRECT" ? target : MERCHANT_ADDRESS;
         let usdcAmount = currentService === "DIRECT" ? inputVal : (inputVal / INR_RATE).toFixed(6);
 
-        // --- FIX: ABI Complete ki taaki MetaMask Unknown na bole ---
+        // --- FIX 1: Complete ABI for MetaMask Recognition ---
         const contract = new ethers.Contract(USDC_ADDR, [
             "function transfer(address to, uint256 value) public returns (bool)",
-            "function decimals() view returns (uint8)",
-            "function symbol() view returns (string)"
+            "function symbol() view returns (string)",
+            "function decimals() view returns (uint8)"
         ], signer);
 
-        // --- FIX: Arc Official Gas Policy (20 Gwei Minimum) ---
+        // --- FIX 2: Official Arc Testnet Gas (Min 20 Gwei) ---
         const minBaseFee = ethers.utils.parseUnits("20", "gwei"); 
-        const priorityFee = ethers.utils.parseUnits("5", "gwei"); 
+        const priorityFee = ethers.utils.parseUnits("2", "gwei"); 
 
         const tx = await contract.transfer(
             finalDest, 
-            ethers.utils.parseUnits(usdcAmount.toString(), 6), // App transfer is 6 decimals
+            ethers.utils.parseUnits(usdcAmount.toString(), 6),
             {
-                maxFeePerGas: minBaseFee.add(priorityFee), 
+                maxFeePerGas: minBaseFee.add(priorityFee),
                 maxPriorityFeePerGas: priorityFee,
                 gasLimit: 120000 
             }
         );
 
-        // Status change jab MetaMask popup hat jaye
-        btn.innerText = "VERIFYING..."; 
+        // UI change after MetaMask Approval
+        btn.innerText = "VERIFYING...";
         
-        const receipt = await tx.wait(1); // Wait for Arc network to confirm
+        const receipt = await tx.wait(1); 
 
         if(receipt.status === 1) {
             document.getElementById("sendModal").classList.add("hidden");
@@ -189,23 +187,17 @@ async function processSend() {
 
     } catch (e) {
         console.error("TX ERROR:", e);
-        if (e.code === 4001) {
-            alert("Payment Cancelled");
-        } else {
-            document.getElementById("sendModal").classList.add("hidden");
-            document.getElementById("failModal").classList.remove("hidden");
-            document.getElementById("failReason").innerText = "Network Busy or Insufficient Fees. Try again!";
-        }
+        document.getElementById("sendModal").classList.add("hidden");
+        document.getElementById("failModal").classList.remove("hidden");
+        document.getElementById("failReason").innerText = e.code === 4001 ? "Payment Cancelled" : "Chain Busy. Try Again.";
     } finally {
-        btn.innerText = "Confirm Payment"; 
-        btn.disabled = false;
+        btn.innerText = "Confirm Payment"; btn.disabled = false;
     }
 }
 
 // --- UTILS ---
 function fetchBalance() {
     if(!userAddress) return;
-    // Native gas is 18 decimals, but ERC20 display is 6 decimals
     const contract = new ethers.Contract(USDC_ADDR, ["function balanceOf(address) view returns (uint256)"], provider);
     contract.balanceOf(userAddress).then(bal => {
         const f = ethers.utils.formatUnits(bal, 6);
@@ -236,7 +228,7 @@ function closeModal(id) {
     if(id === 'scanModal' && codeReader) codeReader.reset();
 }
 
-function copyAddr() { navigator.clipboard.writeText(userAddress); alert("Address Copied!"); }
+function copyAddr() { navigator.clipboard.writeText(userAddress); alert("Copied!"); }
 function toggleProfile() { if(!userAddress) connectWallet(); else document.getElementById("profileMenu").classList.toggle("show"); }
 function disconnectWallet() { localStorage.removeItem("isWalletConnected"); location.reload(); }
 
@@ -272,7 +264,7 @@ async function openHistory() {
             return `<div class="bg-gray-50 p-4 rounded-3xl mb-3 border border-gray-100 shadow-sm">
                 <div class="flex justify-between">
                     <div>
-                        <p class="text-[9px] font-black text-red-500 italic uppercase">Sent Success</p>
+                        <p class="text-[9px] font-black text-red-500 italic uppercase tracking-tighter">Sent Success</p>
                         <p class="text-[8px] truncate w-32 opacity-40 font-mono">To: ${l.args.to}</p>
                     </div>
                     <div class="text-right">
@@ -281,12 +273,12 @@ async function openHistory() {
                     </div>
                 </div>
                 <div class="mt-2 pt-2 border-t border-dashed border-gray-200 flex justify-between items-center">
-                    <p class="text-[7px] font-bold opacity-20 uppercase tracking-widest text-[#121271]">Arc Chain Verified</p>
+                    <p class="text-[7px] font-bold opacity-20 uppercase tracking-widest text-[#121271]">Verified Log</p>
                     <a href="https://testnet.arcscan.app/tx/${l.transactionHash}" target="_blank" class="text-[7px] font-black text-blue-600 underline uppercase italic">View on Scan</a>
                 </div>
             </div>`;
         }).join('');
-    } catch (e) { list.innerHTML = `<p class="text-center text-red-500 font-bold uppercase text-[10px] mt-10">Blockchain Busy. Reloading.</p>`; }
+    } catch (e) { list.innerHTML = `<p class="text-center text-red-500 font-bold uppercase text-[10px] mt-10">Node Busy</p>`; }
 }
 
 function updateAmountFromPlan(selectElement) {
