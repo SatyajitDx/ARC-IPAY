@@ -101,30 +101,34 @@
             </div>
         </div>
 <div class="glass p-6 mb-6">
-            <h3 class="text-[#121271] font-black italic text-sm mb-5 uppercase text-center tracking-widest">Travel & Booking</h3>
-            <div class="grid grid-cols-4 gap-2 text-center">
-                <div onclick="alert('Coming Soon!')" class="glass py-4 cursor-pointer active:scale-95 transition-all">
-                    <i class="fa-solid fa-plane-up text-[#121271] text-xl mb-2"></i>
-                    <p class="text-[7px] font-black mt-1 uppercase">Flights</p>
-                </div>
-                <div onclick="alert('Coming Soon!')" class="glass py-4 cursor-pointer active:scale-95 transition-all">
-                    <i class="fa-solid fa-bus-simple text-[#FF9933] text-xl mb-2"></i>
-                    <p class="text-[7px] font-black mt-1 uppercase">Bus</p>
-                </div>
-                <div onclick="alert('Coming Soon!')" class="glass py-4 cursor-pointer active:scale-95 transition-all">
-                    <i class="fa-solid fa-train-subway text-green-600 text-xl mb-2"></i>
-                    <p class="text-[7px] font-black mt-1 uppercase">Trains</p>
-                </div>
-                <div onclick="alert('Coming Soon!')" class="glass py-4 cursor-pointer active:scale-95 transition-all">
-                    <i class="fa-solid fa-hotel text-orange-500 text-xl mb-2"></i>
-                    <p class="text-[7px] font-black mt-1 uppercase">Hotels</p>
-                </div>
-            </div>
-            <div class="mt-4 text-center">
-                <span class="bg-blue-50 text-[#121271] text-[7px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest animate-pulse border border-blue-100">
-                    Coming Soon 🚀
-                </span>
-            </div>
+    <h3 class="text-[#121271] font-black italic text-sm mb-5 uppercase text-center tracking-widest">Travel & Booking</h3>
+    <div class="grid grid-cols-4 gap-2 text-center">
+        <div onclick="document.getElementById('soonModal').classList.remove('hidden')" class="glass py-4 cursor-pointer active:scale-95 transition-all">
+            <i class="fa-solid fa-plane-up text-[#121271] text-xl mb-2"></i>
+            <p class="text-[7px] font-black mt-1 uppercase">Flights</p>
+        </div>
+
+        <div onclick="document.getElementById('soonModal').classList.remove('hidden')" class="glass py-4 cursor-pointer active:scale-95 transition-all">
+            <i class="fa-solid fa-bus-simple text-[#FF9933] text-xl mb-2"></i>
+            <p class="text-[7px] font-black mt-1 uppercase">Bus</p>
+        </div>
+
+        <div onclick="document.getElementById('soonModal').classList.remove('hidden')" class="glass py-4 cursor-pointer active:scale-95 transition-all">
+            <i class="fa-solid fa-train-subway text-green-600 text-xl mb-2"></i>
+            <p class="text-[7px] font-black mt-1 uppercase">Trains</p>
+        </div>
+
+        <div onclick="document.getElementById('soonModal').classList.remove('hidden')" class="glass py-4 cursor-pointer active:scale-95 transition-all">
+            <i class="fa-solid fa-hotel text-orange-500 text-xl mb-2"></i>
+            <p class="text-[7px] font-black mt-1 uppercase">Hotels</p>
+        </div>
+    
+    <div class="mt-4 text-center">
+        <span class="bg-blue-50 text-[#121271] text-[7px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest animate-pulse border border-blue-100">
+            Coming Soon 🚀
+        </span>
+    </div>
+</div>
         </div>
     </div>
 
@@ -201,7 +205,22 @@
             <button onclick="closeModal('failModal')" class="w-full bg-black text-white py-4 rounded-2xl font-black uppercase">Try Again</button>
         </div>
     </div>
+<div id="soonModal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-6 z-[700] backdrop-blur-md">
+        <div class="bg-white rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl border-t-8 border-[#FF9933]">
+            <div class="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-rocket text-4xl text-[#FF9933] animate-bounce"></i>
+            </div>
+            <h2 class="font-black text-2xl uppercase text-[#121271] mb-2">Coming Soon</h2>
+            <p class="text-[10px] font-bold text-gray-400 mb-8 uppercase tracking-widest px-4">Hum is feature ko blockchain par build kar rahe hain!</p>
+            
+            <div class="bg-gray-50 p-4 rounded-2xl mb-8 border border-dashed border-gray-200">
+                <p class="text-[9px] font-black text-[#121271] opacity-40 uppercase mb-1">Status</p>
+                <p class="text-xs font-black italic text-[#138808]">STAGING ON ARC TESTNET</p>
+            </div>
 
+            <button onclick="closeModal('soonModal')" class="w-full bg-[#121271] text-white py-4 rounded-2xl font-black uppercase shadow-lg shadow-blue-900/20 active:scale-95 transition-all">Understood</button>
+        </div>
+    </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
