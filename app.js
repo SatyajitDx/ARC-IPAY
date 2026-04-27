@@ -151,14 +151,14 @@ async function processSend() {
         let finalDest = currentService === "DIRECT" ? target : MERCHANT_ADDRESS;
         let usdcAmount = currentService === "DIRECT" ? inputVal : (inputVal / INR_RATE).toFixed(6);
 
-        // --- FIX 1: Detailed ABI taaki MetaMask symbol/decimals dekh sake ---
+        // --- FIX 1: Complete ABI for MetaMask Recognition ---
         const contract = new ethers.Contract(USDC_ADDR, [
             "function transfer(address to, uint256 value) public returns (bool)",
             "function symbol() view returns (string)",
             "function decimals() view returns (uint8)"
         ], signer);
 
-        // --- FIX 2: Official Arc Testnet Gas (Min 20 Gwei + Tip) ---
+        // --- FIX 2: Official Arc Testnet Gas (Min 20 Gwei) ---
         const minBaseFee = ethers.utils.parseUnits("20", "gwei"); 
         const priorityFee = ethers.utils.parseUnits("2", "gwei"); 
 
@@ -189,7 +189,7 @@ async function processSend() {
         console.error("TX ERROR:", e);
         document.getElementById("sendModal").classList.add("hidden");
         document.getElementById("failModal").classList.remove("hidden");
-        document.getElementById("failReason").innerText = e.code === 4001 ? "Payment Cancelled" : "Chain Busy or Low Gas. Try Again.";
+        document.getElementById("failReason").innerText = e.code === 4001 ? "Payment Cancelled" : "Chain Busy. Try Again.";
     } finally {
         btn.innerText = "Confirm Payment"; btn.disabled = false;
     }
