@@ -54,6 +54,18 @@ function setupWallet(addr) {
     fetchBalance();
 }
 
+// --- NEW: SMART VALIDATION MODAL TRIGGER ---
+function showValidationError(message) {
+    const validModal = document.getElementById('validModal');
+    const validText = document.getElementById('validText');
+    if (validModal && validText) {
+        validText.innerText = message.toUpperCase();
+        validModal.classList.remove('hidden');
+    } else {
+        alert(message); // Fallback agar modal missing ho
+    }
+}
+
 // --- DYNAMIC BILLING LOGIC ---
 function openBilling(serviceType) {
     if(!userAddress) return connectWallet();
@@ -72,7 +84,7 @@ function openBilling(serviceType) {
     billingFields.innerHTML = ""; 
 
     if(currentService === 'MOBILE') {
-        label.innerText = "Mobile Number";
+        label.innerText = "MOBILE NUMBER";
         input.placeholder = "Enter 10 digit number";
         input.classList.remove("font-mono");
         
@@ -91,7 +103,7 @@ function openBilling(serviceType) {
             </select>
         `;
     } else {
-        label.innerText = currentService === 'ELECTRIC' ? "Consumer Number" : "Consumer ID / Account No";
+        label.innerText = currentService === 'ELECTRIC' ? "CONSUMER NUMBER" : "CONSUMER ID / ACCOUNT NO";
         input.placeholder = `Enter your ${currentService} ID`;
         input.classList.remove("font-mono");
         
@@ -120,7 +132,7 @@ function openSend() {
     currentService = "DIRECT";
     document.getElementById("sendModal").classList.remove("hidden");
     document.getElementById("sendModal").querySelector('h3').innerText = "SEND USDC";
-    document.getElementById("inputLabel").innerText = "Recipient Address";
+    document.getElementById("inputLabel").innerText = "RECIPIENT ADDRESS";
     document.getElementById("sendTo").placeholder = "0x...";
     document.getElementById("sendTo").classList.add("font-mono");
     document.getElementById("billingFields").innerHTML = "";
@@ -145,9 +157,25 @@ function updateInrCalc() {
 async function processSend() {
     const target = document.getElementById("sendTo").value;
     const inputVal = document.getElementById("sendAmt").value;
+    const labelText = document.getElementById("inputLabel").innerText;
     const btn = document.getElementById("finalSendBtn");
 
-    if(!target || !inputVal || inputVal <= 0) return alert("Please enter valid details!");
+    // --- SMART VALIDATION REPLACING ALERT ---
+    if(!target || target.length < 5) {
+        if(labelText.includes("MOBILE")) {
+            showValidationError("Please enter a valid Mobile Number");
+        } else if(labelText.includes("CONSUMER") || labelText.includes("ID") || labelText.includes("NUMBER")) {
+            showValidationError("Please enter a valid Consumer ID");
+        } else {
+            showValidationError("Please enter a valid recipient address");
+        }
+        return;
+    }
+
+    if(!inputVal || inputVal <= 0) {
+        showValidationError("Please enter a valid amount");
+        return;
+    }
 
     try {
         btn.innerText = "PROCESSING..."; 
@@ -156,12 +184,10 @@ async function processSend() {
         let finalDest = currentService === "DIRECT" ? target : MERCHANT_ADDRESS;
         let usdcAmount = currentService === "DIRECT" ? inputVal : (inputVal / INR_RATE).toFixed(6);
 
-        // Minimal ABI for direct transfer recognition
         const contract = new ethers.Contract(USDC_ADDR, [
             "function transfer(address to, uint256 value) public returns (bool)"
         ], signer);
 
-        // Fixed GasPrice for fast mining on Arc
         const gasPrice = ethers.utils.parseUnits("22", "gwei"); 
 
         const tx = await contract.transfer(
@@ -180,7 +206,6 @@ async function processSend() {
             document.getElementById("sendModal").classList.add("hidden");
             document.getElementById("receiptModal").classList.remove("hidden");
             
-            // Fix INR display on Receipt
             const finalInr = (usdcAmount * INR_RATE).toFixed(2);
             document.getElementById("recAmt").innerText = `${usdcAmount} USDC`;
             document.getElementById("recInr").innerText = `≈ ₹${finalInr}`; 
@@ -191,7 +216,11 @@ async function processSend() {
 
     } catch (e) {
         console.error("TX ERROR:", e);
-        alert(e.code === 4001 ? "Transaction Cancelled" : "Failed. Check balance/gas.");
+        if(e.code === 4001) {
+            showValidationError("Transaction Cancelled");
+        } else {
+            showValidationError("Failed. Check balance/gas.");
+        }
         document.getElementById("sendModal").classList.add("hidden");
     } finally {
         btn.innerText = "Confirm Payment"; 
@@ -228,7 +257,8 @@ async function openScan() {
 }
 
 function closeModal(id) { 
-    document.getElementById(id).classList.add("hidden"); 
+    const modal = document.getElementById(id);
+    if(modal) modal.classList.add("hidden"); 
     if(id === 'scanModal' && codeReader) codeReader.reset();
 }
 
