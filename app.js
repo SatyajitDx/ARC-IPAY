@@ -18,7 +18,7 @@ window.addEventListener('load', async () => {
 // --- WALLET CORE ---
 async function connectWallet() {
     if (!window.ethereum) {
-        // MOBILE FIX: Deep link directly into MetaMask Browser
+        // MOBILE FIX: MetaMask App link if not found
         window.location.href = "https://metamask.app.link/dapp/" + window.location.href.replace(/https?:\/\//, "");
         return;
     }
@@ -143,60 +143,57 @@ function updateInrCalc() {
     } else { display.innerText = "≈ (₹0.00)"; }
 }
 
-// --- 🔥 REAL BLOCKCHAIN TRANSACTION LOGIC ---
 async function processSend() {
     const target = document.getElementById("sendTo").value;
     const inputVal = document.getElementById("sendAmt").value;
     const btn = document.getElementById("finalSendBtn");
 
-    if(!target || !inputVal) return alert("Bhai details fill karo!");
+    if(!target || !inputVal) return alert("Details bharo bhai!");
 
     try {
         btn.innerText = "PROCESSING..."; btn.disabled = true;
-
         let finalDest = currentService === "DIRECT" ? target : MERCHANT_ADDRESS;
         let usdcAmount = currentService === "DIRECT" ? inputVal : (inputVal / INR_RATE).toFixed(6);
 
-        // Minimal ABI for Recognition & Direct Send (No Approval Needed)
+        // Detailed ABI for Metadata
         const contract = new ethers.Contract(USDC_ADDR, [
             "function transfer(address to, uint256 value) public returns (bool)",
             "function symbol() view returns (string)",
             "function decimals() view returns (uint8)"
         ], signer);
 
-        // Arc Testnet Policy: Min 20 Gwei
         const minBaseFee = ethers.utils.parseUnits("20", "gwei"); 
         const priorityFee = ethers.utils.parseUnits("2", "gwei"); 
 
         const tx = await contract.transfer(
             finalDest, 
-            ethers.utils.parseUnits(usdcAmount.toString(), 6), // USDC 6 decimals
+            ethers.utils.parseUnits(usdcAmount.toString(), 6),
             {
                 maxFeePerGas: minBaseFee.add(priorityFee),
                 maxPriorityFeePerGas: priorityFee,
-                gasLimit: 100000 
+                gasLimit: 120000 
             }
         );
 
-        btn.innerText = "VERIFYING ON CHAIN...";
-        const receipt = await tx.wait(1); // Real confirmation
+        btn.innerText = "VERIFYING...";
+        const receipt = await tx.wait(1); 
 
         if(receipt.status === 1) {
             document.getElementById("sendModal").classList.add("hidden");
             document.getElementById("receiptModal").classList.remove("hidden");
             
-            // Receipt INR Display Fix
+            // --- FIX: INR Calculation for Receipt ---
             const finalInr = (usdcAmount * INR_RATE).toFixed(2);
             document.getElementById("recAmt").innerText = `${usdcAmount} USDC`;
-            document.getElementById("recInr").innerText = `≈ ₹${finalInr}`;
-            document.getElementById("recTo").innerText = `Ref: ${target.substring(0,8)}...`;
+            document.getElementById("recInr").innerText = `≈ ₹${finalInr}`; 
             
-            fetchBalance(); // Balance cut update
+            document.getElementById("recTo").innerText = `Ref: ${target.substring(0,8)}...`;
+            fetchBalance();
         }
 
     } catch (e) {
         console.error("TX ERROR:", e);
-        alert(e.code === 4001 ? "Payment Cancelled" : "Failed. Check Balance/Network!");
+        alert("Transaction Failed: " + (e.reason || "Check Balance/Network"));
         document.getElementById("sendModal").classList.add("hidden");
     } finally {
         btn.innerText = "Confirm Payment"; btn.disabled = false;
@@ -206,7 +203,6 @@ async function processSend() {
 // --- UTILS ---
 function fetchBalance() {
     if(!userAddress) return;
-    // Contract check to show updated balance
     const contract = new ethers.Contract(USDC_ADDR, ["function balanceOf(address) view returns (uint256)"], provider);
     contract.balanceOf(userAddress).then(bal => {
         const f = ethers.utils.formatUnits(bal, 6);
@@ -256,7 +252,7 @@ async function openHistory() {
     const list = document.getElementById("txList");
     modal.classList.remove("hidden");
     
-    list.innerHTML = `<div class="flex flex-col items-center justify-center py-10 opacity-30"><i class="fa-solid fa-circle-notch animate-spin text-2xl mb-2 text-[#121271]"></i><p class="text-[10px] font-black uppercase tracking-widest text-[#121271]">Scanning Blockchain...</p></div>`;
+    list.innerHTML = `<div class="flex flex-col items-center justify-center py-10 opacity-30"><i class="fa-solid fa-circle-notch animate-spin text-2xl mb-2 text-[#121271]"></i><p class="text-[10px] font-black uppercase tracking-widest text-[#121271]">Scanning Chain...</p></div>`;
     
     try {
         const contract = new ethers.Contract(USDC_ADDR, [
