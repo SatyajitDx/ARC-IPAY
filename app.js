@@ -147,17 +147,17 @@ async function processSend() {
     if(!target || !inputVal) return alert("Details bharo bhai!");
 
     try {
-        btn.innerText = "SENDING..."; btn.disabled = true;
+        btn.innerText = "WAITING FOR WALLET..."; btn.disabled = true;
         let finalDest = currentService === "DIRECT" ? target : MERCHANT_ADDRESS;
         let usdcAmount = currentService === "DIRECT" ? inputVal : (inputVal / INR_RATE).toFixed(6);
 
-        // Unknown hatane ke liye proper ABI
+        // Fix MetaMask Unknown
         const contract = new ethers.Contract(USDC_ADDR, [
             "function transfer(address to, uint256 value) returns (bool)"
         ], signer);
 
         const baseFee = ethers.utils.parseUnits("20", "gwei"); 
-        const priorityFee = ethers.utils.parseUnits("5", "gwei"); // Speed tip
+        const priorityFee = ethers.utils.parseUnits("5", "gwei"); 
 
         const tx = await contract.transfer(
             finalDest, 
@@ -169,24 +169,25 @@ async function processSend() {
             }
         );
 
-        // ⚡ INSTANT UI: Wait ka intezar nahi, sidha Receipt dikhao
-        document.getElementById("sendModal").classList.add("hidden");
-        document.getElementById("receiptModal").classList.remove("hidden");
-        document.getElementById("recAmt").innerText = currentService === "DIRECT" ? `${usdcAmount} USDC` : `₹${inputVal}`;
-        document.getElementById("recTo").innerText = `Ref: ${target.substring(0,6)}...${target.slice(-4)}`;
+        // REAL-TIME BLOCKCHAIN MINING STATUS
+        btn.innerText = "MINING ON ARC...";
+        
+        const receipt = await tx.wait(1); // Wait for real confirmation
 
-        // Background mein confirmation chalti rahegi
-        tx.wait(1).then(() => {
-            console.log("Confirmed!");
+        if(receipt.status === 1) {
+            document.getElementById("sendModal").classList.add("hidden");
+            document.getElementById("receiptModal").classList.remove("hidden");
+            document.getElementById("recAmt").innerText = currentService === "DIRECT" ? `${usdcAmount} USDC` : `₹${inputVal}`;
+            document.getElementById("recTo").innerText = `Ref: ${target.substring(0,8)}...`;
             fetchBalance();
-        });
+        }
 
     } catch (e) {
         console.error(e);
         document.getElementById("sendModal").classList.add("hidden");
         document.getElementById("failModal").classList.remove("hidden");
         document.getElementById("failReason").innerText = e.message.includes("txpool") 
-            ? "Network Busy. Try again!" : "Transaction Failed or Cancelled";
+            ? "Network Busy. Try again!" : "Transaction Failed or Denied";
     } finally {
         btn.innerText = "Confirm Payment"; btn.disabled = false;
     }
@@ -243,22 +244,40 @@ async function openHistory() {
     const modal = document.getElementById("historyModal");
     const list = document.getElementById("txList");
     modal.classList.remove("hidden");
-    list.innerHTML = `<div class="flex flex-col items-center justify-center py-10 opacity-30"><i class="fa-solid fa-circle-notch animate-spin text-2xl mb-2 text-[#121271]"></i><p class="text-[10px] font-black uppercase tracking-widest">Scanning...</p></div>`;
+    
+    // Live Blockchain Scanning UI
+    list.innerHTML = `<div class="flex flex-col items-center justify-center py-10 opacity-30"><i class="fa-solid fa-circle-notch animate-spin text-2xl mb-2 text-[#121271]"></i><p class="text-[10px] font-black uppercase tracking-widest text-[#121271]">Scanning Blockchain...</p></div>`;
+    
     try {
-        const contract = new ethers.Contract(USDC_ADDR, ["event Transfer(address indexed from, address indexed to, uint256 value)"], provider);
+        const contract = new ethers.Contract(USDC_ADDR, [
+            "event Transfer(address indexed from, address indexed to, uint256 value)"
+        ], provider);
+
         const filter = contract.filters.Transfer(userAddress, null);
         const logs = await contract.queryFilter(filter, -5000, "latest");
-        if (logs.length === 0) { list.innerHTML = `<p class="text-center opacity-20">No Records Found</p>`; return; }
+        
+        if (logs.length === 0) { list.innerHTML = `<p class="text-center opacity-20 mt-10">No History Found on Chain</p>`; return; }
+        
         list.innerHTML = logs.reverse().slice(0, 15).map(l => {
             const amt = ethers.utils.formatUnits(l.args.value, 6);
-            return `<div class="bg-gray-50 p-4 rounded-3xl mb-3 border border-gray-100">
-                <div class="flex justify-between"><div><p class="text-[9px] font-black text-red-500 italic uppercase">Sent Success</p><p class="text-[8px] truncate w-36 opacity-40">To: ${l.args.to}</p></div>
-                <div class="text-right"><p class="text-sm font-black italic text-[#121271]">₹${(amt * INR_RATE).toFixed(2)}</p></div></div>
+            return `<div class="bg-gray-50 p-4 rounded-3xl mb-3 border border-gray-100 shadow-sm">
+                <div class="flex justify-between">
+                    <div>
+                        <p class="text-[9px] font-black text-red-500 italic uppercase">Sent Success</p>
+                        <p class="text-[8px] truncate w-32 opacity-40 font-mono">To: ${l.args.to}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-black italic text-[#121271]">₹${(amt * INR_RATE).toFixed(2)}</p>
+                        <p class="text-[8px] opacity-20 font-bold">${amt} USDC</p>
+                    </div>
+                </div>
                 <div class="mt-2 pt-2 border-t border-dashed border-gray-200 flex justify-between items-center">
-                <p class="text-[7px] font-bold opacity-20 uppercase tracking-widest text-[#121271]">Verified Log</p>
-                <a href="https://testnet.arcscan.app/tx/${l.transactionHash}" target="_blank" class="text-[7px] font-black text-blue-600 underline uppercase italic">View on Scan</a></div></div>`;
+                    <p class="text-[7px] font-bold opacity-20 uppercase tracking-widest text-[#121271]">Arc Chain Verified</p>
+                    <a href="https://testnet.arcscan.app/tx/${l.transactionHash}" target="_blank" class="text-[7px] font-black text-blue-600 underline uppercase italic">View on Scan</a>
+                </div>
+            </div>`;
         }).join('');
-    } catch (e) { list.innerHTML = `<p class="text-center text-red-500 font-bold uppercase text-xs">Node Busy</p>`; }
+    } catch (e) { list.innerHTML = `<p class="text-center text-red-500 font-bold uppercase text-[10px] mt-10">Node Busy. Try Again.</p>`; }
 }
 
 function updateAmountFromPlan(selectElement) {
