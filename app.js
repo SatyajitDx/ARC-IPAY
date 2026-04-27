@@ -151,14 +151,14 @@ async function processSend() {
         let finalDest = currentService === "DIRECT" ? target : MERCHANT_ADDRESS;
         let usdcAmount = currentService === "DIRECT" ? inputVal : (inputVal / INR_RATE).toFixed(6);
 
-        // --- FIX 1: Complete ABI for MetaMask Recognition ---
+        // --- FIX 1: Detailed ABI taaki MetaMask symbol/decimals dekh sake ---
         const contract = new ethers.Contract(USDC_ADDR, [
             "function transfer(address to, uint256 value) public returns (bool)",
             "function symbol() view returns (string)",
             "function decimals() view returns (uint8)"
         ], signer);
 
-        // --- FIX 2: Official Arc Testnet Gas (Min 20 Gwei) ---
+        // --- FIX 2: Official Arc Testnet Gas (Min 20 Gwei + Tip) ---
         const minBaseFee = ethers.utils.parseUnits("20", "gwei"); 
         const priorityFee = ethers.utils.parseUnits("2", "gwei"); 
 
@@ -172,7 +172,7 @@ async function processSend() {
             }
         );
 
-        // UI change after MetaMask Approval
+        // Status change after MetaMask confirmation
         btn.innerText = "VERIFYING...";
         
         const receipt = await tx.wait(1); 
@@ -189,7 +189,7 @@ async function processSend() {
         console.error("TX ERROR:", e);
         document.getElementById("sendModal").classList.add("hidden");
         document.getElementById("failModal").classList.remove("hidden");
-        document.getElementById("failReason").innerText = e.code === 4001 ? "Payment Cancelled" : "Chain Busy. Try Again.";
+        document.getElementById("failReason").innerText = e.code === 4001 ? "Payment Cancelled" : "Chain Busy or Low Gas. Try Again.";
     } finally {
         btn.innerText = "Confirm Payment"; btn.disabled = false;
     }
@@ -264,7 +264,7 @@ async function openHistory() {
             return `<div class="bg-gray-50 p-4 rounded-3xl mb-3 border border-gray-100 shadow-sm">
                 <div class="flex justify-between">
                     <div>
-                        <p class="text-[9px] font-black text-red-500 italic uppercase tracking-tighter">Sent Success</p>
+                        <p class="text-[9px] font-black text-red-500 italic uppercase">Sent Success</p>
                         <p class="text-[8px] truncate w-32 opacity-40 font-mono">To: ${l.args.to}</p>
                     </div>
                     <div class="text-right">
