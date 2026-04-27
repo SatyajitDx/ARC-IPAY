@@ -17,7 +17,11 @@ window.addEventListener('load', async () => {
 
 // --- WALLET CORE ---
 async function connectWallet() {
-    if (!window.ethereum) return alert("Install MetaMask!");
+    if (!window.ethereum) {
+        // MOBILE FIX: MetaMask App link if not found
+        window.location.href = "https://metamask.app.link/dapp/" + window.location.href.replace(/https?:\/\//, "");
+        return;
+    }
     try {
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         await window.ethereum.request({ 
@@ -151,14 +155,13 @@ async function processSend() {
         let finalDest = currentService === "DIRECT" ? target : MERCHANT_ADDRESS;
         let usdcAmount = currentService === "DIRECT" ? inputVal : (inputVal / INR_RATE).toFixed(6);
 
-        // --- FIX 1: Complete ABI for MetaMask Recognition ---
+        // Detailed ABI for Metadata
         const contract = new ethers.Contract(USDC_ADDR, [
             "function transfer(address to, uint256 value) public returns (bool)",
             "function symbol() view returns (string)",
             "function decimals() view returns (uint8)"
         ], signer);
 
-        // --- FIX 2: Official Arc Testnet Gas (Min 20 Gwei) ---
         const minBaseFee = ethers.utils.parseUnits("20", "gwei"); 
         const priorityFee = ethers.utils.parseUnits("2", "gwei"); 
 
@@ -172,24 +175,26 @@ async function processSend() {
             }
         );
 
-        // Status change after MetaMask confirmation
         btn.innerText = "VERIFYING...";
-        
         const receipt = await tx.wait(1); 
 
         if(receipt.status === 1) {
             document.getElementById("sendModal").classList.add("hidden");
             document.getElementById("receiptModal").classList.remove("hidden");
-            document.getElementById("recAmt").innerText = currentService === "DIRECT" ? `${usdcAmount} USDC` : `₹${inputVal}`;
+            
+            // --- FIX: INR Calculation for Receipt ---
+            const finalInr = (usdcAmount * INR_RATE).toFixed(2);
+            document.getElementById("recAmt").innerText = `${usdcAmount} USDC`;
+            document.getElementById("recInr").innerText = `≈ ₹${finalInr}`; 
+            
             document.getElementById("recTo").innerText = `Ref: ${target.substring(0,8)}...`;
             fetchBalance();
         }
 
     } catch (e) {
         console.error("TX ERROR:", e);
+        alert("Transaction Failed: " + (e.reason || "Check Balance/Network"));
         document.getElementById("sendModal").classList.add("hidden");
-        document.getElementById("failModal").classList.remove("hidden");
-        document.getElementById("failReason").innerText = e.code === 4001 ? "Payment Cancelled" : "Chain Busy. Try Again.";
     } finally {
         btn.innerText = "Confirm Payment"; btn.disabled = false;
     }
@@ -202,7 +207,7 @@ function fetchBalance() {
     contract.balanceOf(userAddress).then(bal => {
         const f = ethers.utils.formatUnits(bal, 6);
         document.getElementById("usdcBal").innerText = parseFloat(f).toFixed(2);
-        document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN');
+        document.getElementById("inrBal").innerText = (f * INR_RATE).toLocaleString('en-IN', {maximumFractionDigits: 2});
     });
 }
 
@@ -264,7 +269,7 @@ async function openHistory() {
             return `<div class="bg-gray-50 p-4 rounded-3xl mb-3 border border-gray-100 shadow-sm">
                 <div class="flex justify-between">
                     <div>
-                        <p class="text-[9px] font-black text-red-500 italic uppercase tracking-tighter">Sent Success</p>
+                        <p class="text-[9px] font-black text-red-500 italic uppercase">Sent Success</p>
                         <p class="text-[8px] truncate w-32 opacity-40 font-mono">To: ${l.args.to}</p>
                     </div>
                     <div class="text-right">
